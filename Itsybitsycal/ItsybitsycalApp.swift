@@ -155,11 +155,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func togglePopover() {
+        // Always close floating panels when toggling (handles edge case where
+        // transient popover closes before this action fires)
+        addEventPanel.closePanel()
+        editEventPanel.closePanel()
+
         if let button = statusBarItem.button {
             if popover.isShown {
                 popover.performClose(nil)
-                addEventPanel.closePanel()
-                editEventPanel.closePanel()
             } else {
                 popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
                 NSApp.activate(ignoringOtherApps: true)
