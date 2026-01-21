@@ -6,6 +6,12 @@ A lightweight, native macOS menu bar calendar app built with SwiftUI.
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+## The Story
+
+When Anthropic restricted the use of [Itsycal](https://www.mowglii.com/itsycal/) on company devices, I decided to rebuild it from scratch using [Claude Code](https://claude.ai/code). **The entire app was built in ~1.5 hours** - from zero to a fully functional menu bar calendar with event creation, multiple calendar support, and customizable display options.
+
+This project demonstrates what's possible when pairing human intent with AI-assisted development.
+
 ## Features
 
 - **Menu Bar Integration** - Lives in your menu bar, not your dock
