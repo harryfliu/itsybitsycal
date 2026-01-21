@@ -268,11 +268,11 @@ struct ToolbarView: View {
             Spacer()
 
             Button(action: {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.Calendar-settings.extension") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preferences.internetaccounts") {
                     NSWorkspace.shared.open(url)
                 }
             }) {
-                Image(systemName: "calendar")
+                Image(systemName: "calendar.badge.plus")
                     .font(.system(size: 12))
             }
             .buttonStyle(ToolbarButtonStyle())
@@ -332,21 +332,45 @@ struct SettingsView: View {
                     // Calendars grouped by source
                     CalendarsListView(calendarManager: calendarManager)
 
-                    // General section
-                    SettingsSectionView(title: "General") {
+                    // Add Calendar Account section
+                    SettingsSectionView(title: "Add Calendar") {
                         SettingsRowView(
-                            icon: "calendar",
-                            title: "Calendar Settings",
+                            icon: "calendar.badge.plus",
+                            title: "Add Calendar Account",
                             action: {
-                                if let url = URL(string: "x-apple.systempreferences:com.apple.Calendar-settings.extension") {
+                                if let url = URL(string: "x-apple.systempreferences:com.apple.preferences.internetaccounts") {
                                     NSWorkspace.shared.open(url)
                                 }
                             }
                         )
 
+                        // Mini tutorial
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("To add Google Calendar:")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.primary)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                TutorialStep(number: "1", text: "Click \"Add Calendar Account\" above")
+                                TutorialStep(number: "2", text: "Select \"Google\" and sign in")
+                                TutorialStep(number: "3", text: "Uncheck Mail, Contacts, Notes")
+                                TutorialStep(number: "4", text: "Keep only \"Calendars\" checked")
+                            }
+
+                            Text("This gives the app minimal access to just your calendar.")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                                .italic()
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                    }
+
+                    // Privacy section
+                    SettingsSectionView(title: "Privacy") {
                         SettingsRowView(
                             icon: "lock.shield",
-                            title: "Privacy Settings",
+                            title: "Calendar Privacy Settings",
                             action: {
                                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
                                     NSWorkspace.shared.open(url)
@@ -361,6 +385,15 @@ struct SettingsView: View {
                             icon: "info.circle",
                             title: "Version 1.0",
                             action: nil
+                        )
+                        SettingsRowView(
+                            icon: "person.circle",
+                            title: "Created by @harryl",
+                            action: {
+                                if let url = URL(string: "mailto:harryliu@anthropic.com") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
                         )
                     }
 
@@ -994,5 +1027,24 @@ struct SettingsRowView: View {
         }
         .buttonStyle(.plain)
         .disabled(action == nil)
+    }
+}
+
+struct TutorialStep: View {
+    let number: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Text(number)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 14, height: 14)
+                .background(Circle().fill(Color.accentColor))
+
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+        }
     }
 }
