@@ -102,7 +102,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Credits
 
-Created by [@harryl](mailto:harryliu@anthropic.com)
+Created by Harry Liu
 
 Built entirely with [Claude Code](https://claude.ai/code)
 
