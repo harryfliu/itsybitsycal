@@ -260,12 +260,6 @@ struct ToolbarView: View {
 
             Spacer()
 
-            Button(action: {}) {
-                Image(systemName: "pin")
-                    .font(.system(size: 12))
-            }
-            .buttonStyle(ToolbarButtonStyle())
-
             Button(action: {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.Calendar-settings.extension") {
                     NSWorkspace.shared.open(url)
