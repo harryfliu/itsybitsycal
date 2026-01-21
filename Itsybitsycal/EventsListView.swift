@@ -1,0 +1,216 @@
+import SwiftUI
+import EventKit
+
+struct EventsListView: View {
+    @ObservedObject var calendarManager: CalendarManager
+
+    private var groupedEvents: [(String, String, [EKEvent])] {
+        var result: [(String, String, [EKEvent])] = []
+        let calendar = Calendar.current
+
+        // Get events for the next 7 days starting from selected date
+        var currentDate = calendarManager.selectedDate
+        let endDate = calendar.date(byAdding: .day, value: 7, to: currentDate)!
+
+        while currentDate < endDate {
+            let dayEvents = calendarManager.events(for: currentDate)
+            if !dayEvents.isEmpty {
+                let dayLabel = dayLabelFor(date: currentDate)
+                let dateLabel = dateLabelFor(date: currentDate)
+                result.append((dayLabel, dateLabel, dayEvents))
+            }
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+        }
+
+        return result
+    }
+
+    private func dayLabelFor(date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "Today"
+        } else if calendar.isDateInTomorrow(date) {
+            return "Tomorrow"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE"
+            return formatter.string(from: date)
+        }
+    }
+
+    private func dateLabelFor(date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if !calendarManager.hasAccess {
+                    NoAccessView()
+                } else if groupedEvents.isEmpty {
+                    EmptyEventsView()
+                } else {
+                    ForEach(groupedEvents, id: \.0) { dayLabel, dateLabel, events in
+                        DaySectionView(
+                            dayLabel: dayLabel,
+                            dateLabel: dateLabel,
+                            events: events
+                        )
+                    }
+                }
+            }
+            .padding(.vertical, 8)
+        }
+        .frame(maxHeight: 200)
+    }
+}
+
+struct NoAccessView: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "calendar.badge.exclamationmark")
+                .font(.system(size: 24))
+                .foregroundColor(.secondary)
+            Text("Calendar access required")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+            Button("Open System Settings") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .font(.system(size: 11))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+    }
+}
+
+struct EmptyEventsView: View {
+    var body: some View {
+        Text("No upcoming events")
+            .font(.system(size: 12))
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
+    }
+}
+
+struct DaySectionView: View {
+    let dayLabel: String
+    let dateLabel: String
+    let events: [EKEvent]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Day header
+            HStack {
+                Text(dayLabel)
+                    .font(.system(size: 11, weight: .semibold))
+                Spacer()
+                Text(dateLabel)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+
+            // Events
+            ForEach(events, id: \.eventIdentifier) { event in
+                EventRowView(event: event)
+            }
+        }
+    }
+}
+
+struct EventRowView: View {
+    let event: EKEvent
+
+    private var timeString: String {
+        if event.isAllDay {
+            return ""
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        let start = formatter.string(from: event.startDate)
+        let end = formatter.string(from: event.endDate)
+        return "\(start) – \(end)"
+    }
+
+    private var hasVideoCall: Bool {
+        if let notes = event.notes, notes.contains("zoom.us") || notes.contains("meet.google") || notes.contains("teams.microsoft") {
+            return true
+        }
+        if let url = event.url, let urlString = url.absoluteString.lowercased() as String?,
+           urlString.contains("zoom") || urlString.contains("meet.google") || urlString.contains("teams") {
+            return true
+        }
+        return false
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Circle()
+                .fill(Color(cgColor: event.calendar.cgColor))
+                .frame(width: 8, height: 8)
+                .padding(.top, 4)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.title ?? "Untitled")
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+
+                if !timeString.isEmpty {
+                    HStack(spacing: 4) {
+                        Text(timeString)
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+
+                        if hasVideoCall {
+                            Image(systemName: "video")
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 3)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            openEvent()
+        }
+    }
+
+    private func openEvent() {
+        // Try to open video call link if available
+        if hasVideoCall {
+            if let url = event.url {
+                NSWorkspace.shared.open(url)
+                return
+            }
+            if let notes = event.notes {
+                let patterns = ["https://.*zoom\\.us/[^\\s]+", "https://meet\\.google\\.com/[^\\s]+", "https://teams\\.microsoft\\.com/[^\\s]+"]
+                for pattern in patterns {
+                    if let regex = try? NSRegularExpression(pattern: pattern),
+                       let match = regex.firstMatch(in: notes, range: NSRange(notes.startIndex..., in: notes)),
+                       let range = Range(match.range, in: notes),
+                       let url = URL(string: String(notes[range])) {
+                        NSWorkspace.shared.open(url)
+                        return
+                    }
+                }
+            }
+        }
+
+        // Open in Calendar app
+        if let url = URL(string: "ical://ekevent/\(event.eventIdentifier ?? "")") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+}
