@@ -128,6 +128,16 @@ struct DaySectionView: View {
 struct EventRowView: View {
     let event: EKEvent
 
+    private var isCurrentEvent: Bool {
+        let now = Date()
+        return event.startDate <= now && event.endDate > now
+    }
+
+    private var isPastEvent: Bool {
+        let now = Date()
+        return event.endDate <= now
+    }
+
     private var timeString: String {
         if event.isAllDay {
             return ""
@@ -156,22 +166,26 @@ struct EventRowView: View {
                 .fill(Color(cgColor: event.calendar.cgColor))
                 .frame(width: 8, height: 8)
                 .padding(.top, 4)
+                .opacity(isPastEvent ? 0.5 : 1.0)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title ?? "Untitled")
                     .font(.system(size: 12))
                     .lineLimit(1)
+                    .foregroundColor(isPastEvent ? .secondary : .primary)
 
                 if !timeString.isEmpty {
                     HStack(spacing: 4) {
                         Text(timeString)
                             .font(.system(size: 10))
                             .foregroundColor(.secondary)
+                            .opacity(isPastEvent ? 0.7 : 1.0)
 
                         if hasVideoCall {
                             Image(systemName: "video")
                                 .font(.system(size: 9))
                                 .foregroundColor(.secondary)
+                                .opacity(isPastEvent ? 0.7 : 1.0)
                         }
                     }
                 }
@@ -181,6 +195,11 @@ struct EventRowView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 3)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isCurrentEvent ? Color.accentColor.opacity(0.15) : Color.clear)
+                .padding(.horizontal, 6)
+        )
         .contentShape(Rectangle())
         .onTapGesture {
             openEvent()
