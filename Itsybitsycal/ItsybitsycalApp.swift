@@ -45,9 +45,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         popover = NSPopover()
         popover.contentSize = NSSize(width: 280, height: 420)
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(
+
+        // Use custom hosting controller that accepts first mouse to fix double-click issue
+        let hostingController = FirstMouseHostingController(
             rootView: CalendarView(calendarManager: calendarManager)
         )
+        popover.contentViewController = hostingController
 
         statusBarItem.isVisible = true
 
@@ -174,7 +177,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         addEventPanel.showPanel(relativeTo: popover)
     }
 
-    func showEditEventPanel(for event: EKEvent, atScreenY screenY: CGFloat? = nil) {
-        editEventPanel.showPanel(for: event, relativeTo: popover, atScreenY: screenY)
+    func showEditEventPanel(for event: EKEvent) {
+        editEventPanel.showPanel(for: event, relativeTo: popover)
+    }
+}
+
+// MARK: - Custom Hosting Controller for First Mouse Support
+
+/// A hosting controller that uses a custom view accepting first mouse events.
+/// This fixes the double-click issue in popovers where the first click only activates the window.
+class FirstMouseHostingController<Content: View>: NSHostingController<Content> {
+    override func loadView() {
+        super.loadView()
+        view = FirstMouseHostingView(rootView: rootView)
+    }
+}
+
+/// A custom NSHostingView that accepts the first mouse event.
+/// This allows buttons to respond on the first click even when the popover isn't key.
+class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
     }
 }

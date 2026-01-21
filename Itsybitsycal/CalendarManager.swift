@@ -67,6 +67,100 @@ enum MenuBarDisplayMode: Int, CaseIterable {
     }
 }
 
+// MARK: - Menu Bar Icon Style
+
+enum MenuBarIconStyle: Int, CaseIterable {
+    case solid = 0
+    case outline = 1
+    case grid = 2
+    case smiley = 3
+    case frog = 4
+    case cat = 5
+    case star = 6
+    case heart = 7
+    case custom = 8
+    case none = 9
+
+    var displayName: String {
+        switch self {
+        case .solid: return "Solid"
+        case .outline: return "Outline"
+        case .grid: return "Grid"
+        case .smiley: return "Smiley"
+        case .frog: return "Frog"
+        case .cat: return "Cat"
+        case .star: return "Star"
+        case .heart: return "Heart"
+        case .custom: return "Custom"
+        case .none: return "None"
+        }
+    }
+
+    var emoji: String? {
+        switch self {
+        case .smiley: return "😊"
+        case .frog: return "🐸"
+        case .cat: return "🐱"
+        case .star: return "⭐"
+        case .heart: return "❤️"
+        case .custom: return nil // handled separately
+        default: return nil
+        }
+    }
+
+    var sfSymbol: String? {
+        switch self {
+        case .solid: return "calendar"
+        case .outline: return "calendar"
+        case .grid: return "square.grid.3x3"
+        default: return nil
+        }
+    }
+
+    var isEmoji: Bool {
+        return emoji != nil || self == .custom
+    }
+}
+
+// MARK: - Datetime Pattern Presets
+
+enum DatetimePatternPreset: Int, CaseIterable {
+    case none = 0
+    case timeOnly = 1
+    case dayOfWeek = 2
+    case dayOfWeekShort = 3
+    case fullDate = 4
+    case custom = 5
+
+    var displayName: String {
+        switch self {
+        case .none: return "None"
+        case .timeOnly: return "Time only"
+        case .dayOfWeek: return "Day of week"
+        case .dayOfWeekShort: return "Day (short)"
+        case .fullDate: return "Full date"
+        case .custom: return "Custom"
+        }
+    }
+
+    var pattern: String {
+        switch self {
+        case .none: return ""
+        case .timeOnly: return "h:mm a"
+        case .dayOfWeek: return "EEEE"
+        case .dayOfWeekShort: return "EEE"
+        case .fullDate: return "EEE, MMM d"
+        case .custom: return ""
+        }
+    }
+
+    var example: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = pattern
+        return pattern.isEmpty ? "—" : formatter.string(from: Date())
+    }
+}
+
 class CalendarManager: ObservableObject {
     let eventStore = EKEventStore()
 
@@ -86,6 +180,44 @@ class CalendarManager: ObservableObject {
             UserDefaults.standard.set(menuBarDisplayMode.rawValue, forKey: "menuBarDisplayMode")
         }
     }
+    @Published var menuBarIconStyle: MenuBarIconStyle {
+        didSet {
+            UserDefaults.standard.set(menuBarIconStyle.rawValue, forKey: "menuBarIconStyle")
+        }
+    }
+    @Published var showDayNumberInIcon: Bool {
+        didSet {
+            UserDefaults.standard.set(showDayNumberInIcon, forKey: "showDayNumberInIcon")
+        }
+    }
+    @Published var showMonthInIcon: Bool {
+        didSet {
+            UserDefaults.standard.set(showMonthInIcon, forKey: "showMonthInIcon")
+        }
+    }
+    @Published var showDayOfWeekInIcon: Bool {
+        didSet {
+            UserDefaults.standard.set(showDayOfWeekInIcon, forKey: "showDayOfWeekInIcon")
+        }
+    }
+    @Published var customEmoji: String {
+        didSet {
+            UserDefaults.standard.set(customEmoji, forKey: "customEmoji")
+        }
+    }
+    @Published var datetimePatternPreset: DatetimePatternPreset {
+        didSet {
+            UserDefaults.standard.set(datetimePatternPreset.rawValue, forKey: "datetimePatternPreset")
+        }
+    }
+    @Published var customDatetimePattern: String {
+        didSet {
+            UserDefaults.standard.set(customDatetimePattern, forKey: "customDatetimePattern")
+        }
+    }
+
+    /// Trigger to notify views to scroll to current event (changes value to trigger)
+    @Published var scrollToCurrentEventTrigger: UUID = UUID()
 
     init() {
         // Load saved calendar selections or default to all enabled
@@ -99,6 +231,26 @@ class CalendarManager: ObservableObject {
         let savedMode = UserDefaults.standard.integer(forKey: "menuBarDisplayMode")
         menuBarDisplayMode = MenuBarDisplayMode(rawValue: savedMode) ?? .dayOnly
 
+        // Load icon style
+        let savedIconStyle = UserDefaults.standard.integer(forKey: "menuBarIconStyle")
+        menuBarIconStyle = MenuBarIconStyle(rawValue: savedIconStyle) ?? .solid
+
+        // Load icon display options
+        // Default showDayNumberInIcon to true for new installs
+        if UserDefaults.standard.object(forKey: "showDayNumberInIcon") == nil {
+            showDayNumberInIcon = true
+        } else {
+            showDayNumberInIcon = UserDefaults.standard.bool(forKey: "showDayNumberInIcon")
+        }
+        showMonthInIcon = UserDefaults.standard.bool(forKey: "showMonthInIcon")
+        showDayOfWeekInIcon = UserDefaults.standard.bool(forKey: "showDayOfWeekInIcon")
+        customEmoji = UserDefaults.standard.string(forKey: "customEmoji") ?? "🐸"
+
+        // Load datetime pattern settings
+        let savedPatternPreset = UserDefaults.standard.integer(forKey: "datetimePatternPreset")
+        datetimePatternPreset = DatetimePatternPreset(rawValue: savedPatternPreset) ?? .none
+        customDatetimePattern = UserDefaults.standard.string(forKey: "customDatetimePattern") ?? "EEE h:mm a"
+
         requestAccess()
     }
 
@@ -107,29 +259,69 @@ class CalendarManager: ObservableObject {
         let calendar = Calendar.current
         let day = calendar.component(.day, from: now)
 
-        switch menuBarDisplayMode {
-        case .dayOnly:
-            return " \(day)"
+        var components: [String] = []
 
-        case .monthAndDay:
+        // Build date text based on checkbox settings
+        if showDayOfWeekInIcon {
             let formatter = DateFormatter()
-            formatter.dateFormat = "MMM d"
-            return " \(formatter.string(from: now))"
+            formatter.dateFormat = "EEE"
+            components.append(formatter.string(from: now))
+        }
 
-        case .monthDayAndEvent:
+        if showMonthInIcon {
             let formatter = DateFormatter()
-            formatter.dateFormat = "MMM d"
-            let dateStr = formatter.string(from: now)
+            formatter.dateFormat = "MMM"
+            components.append(formatter.string(from: now))
+        }
 
-            // Find current or upcoming event today
+        if showDayNumberInIcon {
+            components.append("\(day)")
+        }
+
+        // Add datetime pattern text if set
+        let patternText = formattedDatetimePattern()
+        if !patternText.isEmpty {
+            if !components.isEmpty {
+                components.append("•")
+            }
+            components.append(patternText)
+        }
+
+        // Add event if in that mode
+        if menuBarDisplayMode == .monthDayAndEvent {
             if let currentEvent = currentOrNextEvent() {
                 let eventTitle = currentEvent.title ?? "Event"
-                let truncatedTitle = eventTitle.count > 15 ? String(eventTitle.prefix(15)) + "..." : eventTitle
-                return " \(dateStr) - \(truncatedTitle)"
-            } else {
-                return " \(dateStr)"
+                let truncatedTitle = eventTitle.count > 12 ? String(eventTitle.prefix(12)) + "…" : eventTitle
+                components.append("-")
+                components.append(truncatedTitle)
             }
         }
+
+        let result = components.joined(separator: " ")
+        return result.isEmpty ? "" : " " + result
+    }
+
+    /// Returns the emoji to display for the current icon style
+    func menuBarEmoji() -> String? {
+        if menuBarIconStyle == .custom {
+            return customEmoji.isEmpty ? nil : customEmoji
+        }
+        return menuBarIconStyle.emoji
+    }
+
+    func formattedDatetimePattern() -> String {
+        let pattern: String
+        if datetimePatternPreset == .custom {
+            pattern = customDatetimePattern
+        } else {
+            pattern = datetimePatternPreset.pattern
+        }
+
+        guard !pattern.isEmpty else { return "" }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = pattern
+        return formatter.string(from: Date())
     }
 
     func currentOrNextEvent() -> EKEvent? {
@@ -254,6 +446,8 @@ class CalendarManager: ObservableObject {
         currentMonth = Date()
         selectedDate = Date()
         fetchEvents()
+        // Trigger scroll to current event
+        scrollToCurrentEventTrigger = UUID()
     }
 
     func previousMonth() {

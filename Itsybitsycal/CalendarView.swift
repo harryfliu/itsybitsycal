@@ -326,16 +326,8 @@ struct SettingsView: View {
             // Settings content
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Menu Bar section
-                    SettingsSectionView(title: "Menu Bar Display") {
-                        ForEach(MenuBarDisplayMode.allCases, id: \.rawValue) { mode in
-                            MenuBarModeRow(
-                                mode: mode,
-                                isSelected: calendarManager.menuBarDisplayMode == mode,
-                                onSelect: { calendarManager.menuBarDisplayMode = mode }
-                            )
-                        }
-                    }
+                    // Menu Bar Appearance section
+                    MenuBarAppearanceSection(calendarManager: calendarManager)
 
                     // Calendars grouped by source
                     CalendarsListView(calendarManager: calendarManager)
@@ -392,6 +384,445 @@ struct SettingsView: View {
                 }
                 .padding(14)
             }
+        }
+    }
+}
+
+// MARK: - Menu Bar Appearance Section
+
+struct MenuBarAppearanceSection: View {
+    @ObservedObject var calendarManager: CalendarManager
+    @State private var showPatternHelp = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("MENU BAR")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
+
+            VStack(spacing: 0) {
+                // Icon Style Picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Icon Style")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.top, 8)
+
+                    IconStylePicker(
+                        selectedStyle: $calendarManager.menuBarIconStyle,
+                        customEmoji: $calendarManager.customEmoji
+                    )
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 8)
+                }
+
+                Divider()
+                    .padding(.horizontal, 10)
+
+                // Date Display Options
+                VStack(alignment: .leading, spacing: 4) {
+                    ToggleRow(
+                        title: "Show day number",
+                        isOn: $calendarManager.showDayNumberInIcon
+                    )
+                    ToggleRow(
+                        title: "Show month",
+                        isOn: $calendarManager.showMonthInIcon
+                    )
+                    ToggleRow(
+                        title: "Show day of week",
+                        isOn: $calendarManager.showDayOfWeekInIcon
+                    )
+                }
+
+                Divider()
+                    .padding(.horizontal, 10)
+
+                // Datetime Pattern section
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Text Display")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+
+                        Spacer()
+
+                        Button(action: { showPatternHelp.toggle() }) {
+                            Image(systemName: "questionmark.circle")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .popover(isPresented: $showPatternHelp) {
+                            DatetimePatternHelpView()
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.top, 8)
+
+                    // Pattern presets
+                    DatetimePatternPicker(
+                        selectedPreset: $calendarManager.datetimePatternPreset,
+                        customPattern: $calendarManager.customDatetimePattern
+                    )
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 8)
+                }
+
+                Divider()
+                    .padding(.horizontal, 10)
+
+                // Show event option
+                VStack(alignment: .leading, spacing: 4) {
+                    ToggleRow(
+                        title: "Show current/next event",
+                        isOn: Binding(
+                            get: { calendarManager.menuBarDisplayMode == .monthDayAndEvent },
+                            set: { calendarManager.menuBarDisplayMode = $0 ? .monthDayAndEvent : .dayOnly }
+                        )
+                    )
+                }
+
+                // Preview
+                MenuBarPreview(calendarManager: calendarManager)
+                    .padding(10)
+            }
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(8)
+        }
+    }
+}
+
+struct IconStylePicker: View {
+    @Binding var selectedStyle: MenuBarIconStyle
+    @Binding var customEmoji: String
+
+    private let iconStyles: [MenuBarIconStyle] = [.solid, .outline, .grid, .smiley, .frog, .cat, .star, .heart, .custom, .none]
+
+    var body: some View {
+        VStack(spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 5), spacing: 6) {
+                ForEach(iconStyles, id: \.rawValue) { style in
+                    if style == .custom {
+                        // Custom button opens emoji picker
+                        IconStyleButton(
+                            style: style,
+                            isSelected: selectedStyle == style,
+                            customEmoji: customEmoji,
+                            action: {
+                                selectedStyle = style
+                            }
+                        )
+                        .overlay(
+                            EmojiPickerButton(selectedEmoji: $customEmoji, isActive: selectedStyle == .custom)
+                                .opacity(0.01) // Nearly invisible but captures clicks
+                        )
+                    } else {
+                        IconStyleButton(
+                            style: style,
+                            isSelected: selectedStyle == style,
+                            customEmoji: customEmoji,
+                            action: { selectedStyle = style }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Emoji Picker Integration
+
+struct EmojiPickerButton: NSViewRepresentable {
+    @Binding var selectedEmoji: String
+    var isActive: Bool
+
+    func makeNSView(context: Context) -> EmojiTextField {
+        let textField = EmojiTextField()
+        textField.delegate = context.coordinator
+        textField.isBezeled = false
+        textField.drawsBackground = false
+        textField.isEditable = true
+        textField.stringValue = ""
+        return textField
+    }
+
+    func updateNSView(_ nsView: EmojiTextField, context: Context) {
+        nsView.onEmojiSelected = { emoji in
+            DispatchQueue.main.async {
+                self.selectedEmoji = emoji
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: EmojiPickerButton
+
+        init(_ parent: EmojiPickerButton) {
+            self.parent = parent
+        }
+
+        func controlTextDidChange(_ obj: Notification) {
+            if let textField = obj.object as? NSTextField {
+                let text = textField.stringValue
+                // Extract just the first emoji character
+                if let firstChar = text.first, firstChar.isEmoji {
+                    parent.selectedEmoji = String(firstChar)
+                }
+                // Clear the field for next input
+                textField.stringValue = ""
+            }
+        }
+    }
+}
+
+class EmojiTextField: NSTextField {
+    var onEmojiSelected: ((String) -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        // Become first responder and show emoji picker
+        self.window?.makeFirstResponder(self)
+        NSApp.orderFrontCharacterPalette(nil)
+    }
+
+    override func textDidChange(_ notification: Notification) {
+        let text = self.stringValue
+        if let firstChar = text.first, firstChar.isEmoji {
+            onEmojiSelected?(String(firstChar))
+        }
+        self.stringValue = ""
+    }
+}
+
+extension Character {
+    var isEmoji: Bool {
+        guard let scalar = unicodeScalars.first else { return false }
+        return scalar.properties.isEmoji && (scalar.value > 0x238C || unicodeScalars.count > 1)
+    }
+}
+
+struct IconStyleButton: View {
+    let style: MenuBarIconStyle
+    let isSelected: Bool
+    var customEmoji: String = "🐸"
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
+                    )
+
+                VStack(spacing: 2) {
+                    if style == .none {
+                        Image(systemName: "slash.circle")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                    } else if style == .custom {
+                        Text(customEmoji.isEmpty ? "?" : customEmoji)
+                            .font(.system(size: 18))
+                    } else if let emoji = style.emoji {
+                        Text(emoji)
+                            .font(.system(size: 18))
+                    } else if let symbol = style.sfSymbol {
+                        Image(systemName: symbol)
+                            .font(.system(size: 16))
+                            .foregroundColor(.primary)
+                    }
+
+                    Text(style.displayName)
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                .padding(.vertical, 6)
+            }
+            .frame(height: 50)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct ToggleRow: View {
+    let title: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Button(action: { isOn.toggle() }) {
+            HStack {
+                Image(systemName: isOn ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 13))
+                    .foregroundColor(isOn ? .accentColor : .secondary)
+
+                Text(title)
+                    .font(.system(size: 12))
+                    .foregroundColor(.primary)
+
+                Spacer()
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct DatetimePatternPicker: View {
+    @Binding var selectedPreset: DatetimePatternPreset
+    @Binding var customPattern: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(DatetimePatternPreset.allCases, id: \.rawValue) { preset in
+                DatetimePresetRow(
+                    preset: preset,
+                    isSelected: selectedPreset == preset,
+                    action: { selectedPreset = preset }
+                )
+            }
+
+            // Custom pattern input (only show if custom is selected)
+            if selectedPreset == .custom {
+                HStack {
+                    TextField("Pattern (e.g. EEE h:mm a)", text: $customPattern)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11))
+
+                    Text(formattedCustomPattern())
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .frame(minWidth: 60)
+                }
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    private func formattedCustomPattern() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = customPattern
+        return formatter.string(from: Date())
+    }
+}
+
+struct DatetimePresetRow: View {
+    let preset: DatetimePatternPreset
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: isSelected ? "circle.fill" : "circle")
+                    .font(.system(size: 10))
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+
+                Text(preset.displayName)
+                    .font(.system(size: 11))
+                    .foregroundColor(.primary)
+
+                Spacer()
+
+                if preset != .custom && preset != .none {
+                    Text(preset.example)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.vertical, 3)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct DatetimePatternHelpView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Date & Time Patterns")
+                .font(.system(size: 12, weight: .semibold))
+
+            Text("Common patterns:")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.secondary)
+
+            VStack(alignment: .leading, spacing: 4) {
+                PatternHelpRow(pattern: "EEE", description: "Day of week (Mon)")
+                PatternHelpRow(pattern: "EEEE", description: "Full day (Monday)")
+                PatternHelpRow(pattern: "MMM", description: "Month (Jan)")
+                PatternHelpRow(pattern: "d", description: "Day number (20)")
+                PatternHelpRow(pattern: "h:mm a", description: "Time (3:45 PM)")
+                PatternHelpRow(pattern: "HH:mm", description: "24h time (15:45)")
+            }
+
+            Text("Combine patterns freely!")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .italic()
+        }
+        .padding(12)
+        .frame(width: 200)
+    }
+}
+
+struct PatternHelpRow: View {
+    let pattern: String
+    let description: String
+
+    var body: some View {
+        HStack {
+            Text(pattern)
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.accentColor)
+                .frame(width: 60, alignment: .leading)
+
+            Text(description)
+                .font(.system(size: 10))
+                .foregroundColor(.primary)
+        }
+    }
+}
+
+struct MenuBarPreview: View {
+    @ObservedObject var calendarManager: CalendarManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Preview")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.secondary)
+
+            HStack(spacing: 4) {
+                // Icon preview
+                if calendarManager.menuBarIconStyle != .none {
+                    if calendarManager.menuBarIconStyle.isEmoji, let emoji = calendarManager.menuBarEmoji() {
+                        Text(emoji)
+                            .font(.system(size: 14))
+                    } else if let symbol = calendarManager.menuBarIconStyle.sfSymbol {
+                        Image(systemName: symbol)
+                            .font(.system(size: 12))
+                    }
+                }
+
+                // Title preview
+                Text(calendarManager.menuBarTitle().trimmingCharacters(in: .whitespaces))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.primary)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color(NSColor.windowBackgroundColor))
+            .cornerRadius(4)
         }
     }
 }
@@ -474,37 +905,6 @@ struct CalendarToggleRow: View {
     }
 }
 
-struct MenuBarModeRow: View {
-    let mode: MenuBarDisplayMode
-    let isSelected: Bool
-    let onSelect: () -> Void
-
-    var body: some View {
-        Button(action: onSelect) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(mode.description)
-                        .font(.system(size: 12))
-                        .foregroundColor(.primary)
-
-                    Text(mode.example)
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 14))
-                    .foregroundColor(isSelected ? .accentColor : .secondary)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
 
 struct SettingsSectionView<Content: View>: View {
     let title: String

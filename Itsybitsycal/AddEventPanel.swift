@@ -77,9 +77,9 @@ class AddEventPanel: NSObject {
         panel?.close()
         removePopoverObserver()
 
-        // Create the panel - borderless style to allow custom arrow shape
+        // Create the panel
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 280, height: 420),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -92,25 +92,27 @@ class AddEventPanel: NSObject {
         panel.hasShadow = false  // We'll use custom shadow in SwiftUI
         panel.isReleasedWhenClosed = false
 
-        // Create the SwiftUI view with arrow
+        // Create the SwiftUI view
         let contentView = AddEventPanelView(
             calendarManager: calendarManager,
             onClose: { [weak self] in
                 self?.closePanel()
             }
         )
-        .panelWithArrow()
 
         panel.contentView = NSHostingView(rootView: contentView)
 
-        // Position the panel to the left of the popover (accounting for arrow width)
+        // Position the panel to the left of the popover, vertically centered
         if let popoverWindow = popover.contentViewController?.view.window {
             let popoverFrame = popoverWindow.frame
+            let panelWidth: CGFloat = 280
+            let panelHeight: CGFloat = 420
+
             let panelFrame = NSRect(
-                x: popoverFrame.minX - 300,
-                y: popoverFrame.minY,
-                width: 300,
-                height: 420
+                x: popoverFrame.minX - panelWidth - 8,
+                y: popoverFrame.midY - panelHeight / 2,
+                width: panelWidth,
+                height: panelHeight
             )
             panel.setFrame(panelFrame, display: true)
         }
@@ -349,6 +351,12 @@ struct AddEventPanelView: View {
             }
         }
         .frame(width: 280, height: 420)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.windowBackgroundColor))
+                .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 4)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .onAppear {
             selectedCalendar = defaultCalendar
         }
@@ -390,61 +398,5 @@ struct AddEventPanelView: View {
             errorMessage = error.localizedDescription
             showError = true
         }
-    }
-}
-
-// MARK: - Panel with Arrow Wrapper
-
-struct AddPanelWithArrow<Content: View>: View {
-    let content: Content
-    private let arrowWidth: CGFloat = 12
-    private let arrowHeight: CGFloat = 20
-    private let arrowTopOffset: CGFloat = 30  // Distance from top to arrow center
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            content
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(NSColor.windowBackgroundColor))
-                        .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 4)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            // Arrow pointing right, positioned near the top
-            VStack(spacing: 0) {
-                Spacer()
-                    .frame(height: arrowTopOffset - arrowHeight / 2)
-
-                AddArrowShape()
-                    .fill(Color(NSColor.windowBackgroundColor))
-                    .frame(width: arrowWidth, height: arrowHeight)
-                    .shadow(color: .black.opacity(0.15), radius: 4, x: 2, y: 0)
-
-                Spacer()
-            }
-            .offset(x: -1) // Slight overlap to hide seam
-        }
-    }
-}
-
-struct AddArrowShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: 0, y: 0))
-        path.addLine(to: CGPoint(x: rect.width, y: rect.height / 2))
-        path.addLine(to: CGPoint(x: 0, y: rect.height))
-        path.closeSubpath()
-        return path
-    }
-}
-
-extension AddEventPanelView {
-    func panelWithArrow() -> some View {
-        AddPanelWithArrow { self }
     }
 }

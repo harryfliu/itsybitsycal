@@ -1,5 +1,6 @@
 import SwiftUI
 import EventKit
+import AppKit
 
 class EditEventPanel: NSObject {
     private var panel: NSPanel?
@@ -12,7 +13,7 @@ class EditEventPanel: NSObject {
         super.init()
     }
 
-    func showPanel(for event: EKEvent, relativeTo popover: NSPopover, atScreenY screenY: CGFloat? = nil) {
+    func showPanel(for event: EKEvent, relativeTo popover: NSPopover) {
         // Close existing panel if any
         panel?.close()
         removeClickMonitor()
@@ -33,7 +34,7 @@ class EditEventPanel: NSObject {
         panel.hasShadow = false  // We'll use custom shadow in SwiftUI
         panel.isReleasedWhenClosed = false
 
-        // Create the SwiftUI view with arrow
+        // Create the SwiftUI view
         let contentView = EditEventPanelView(
             event: event,
             calendarManager: calendarManager,
@@ -41,41 +42,19 @@ class EditEventPanel: NSObject {
                 self?.closePanel()
             }
         )
-        .panelWithArrow()
 
         let hostingView = NSHostingView(rootView: contentView)
         panel.contentView = hostingView
 
-        // Get the intrinsic content size
-        let panelSize = hostingView.fittingSize
-        let panelWidth: CGFloat = 320
-        let panelHeight = max(panelSize.height, 200)
-
-        // Position the panel to the left of the popover with arrow pointing at the event
+        // Position the panel to the left of the popover, vertically centered
         if let popoverWindow = popover.contentViewController?.view.window {
             let popoverFrame = popoverWindow.frame
-
-            // Calculate Y position so arrow points at the event row
-            let arrowOffset: CGFloat = 30 // Distance from top of panel to arrow center (matches PanelWithArrow)
-            var panelY: CGFloat
-
-            if let targetY = screenY {
-                // Position panel so arrow points at the event's Y position
-                panelY = targetY - arrowOffset
-            } else {
-                // Fallback: center on popover
-                panelY = popoverFrame.midY - panelHeight / 2
-            }
-
-            // Ensure panel stays on screen
-            if let screen = popoverWindow.screen {
-                let screenFrame = screen.visibleFrame
-                panelY = max(screenFrame.minY, min(panelY, screenFrame.maxY - panelHeight))
-            }
+            let panelWidth: CGFloat = 300
+            let panelHeight: CGFloat = 400
 
             let panelFrame = NSRect(
-                x: popoverFrame.minX - panelWidth,
-                y: panelY,
+                x: popoverFrame.minX - panelWidth - 8,
+                y: popoverFrame.midY - panelHeight / 2,
                 width: panelWidth,
                 height: panelHeight
             )
@@ -248,6 +227,12 @@ struct EditEventPanelView: View {
         }
         .frame(width: 300)
         .fixedSize(horizontal: false, vertical: true)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.windowBackgroundColor))
+                .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 4)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .alert("Delete Event", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
@@ -456,33 +441,11 @@ struct EditEventPanelView: View {
                         Text("Calendar")
                             .font(.system(size: 13))
                         Spacer()
-                        Menu {
-                            ForEach(writableCalendars, id: \.calendarIdentifier) { calendar in
-                                Button(action: { selectedCalendar = calendar }) {
-                                    Label {
-                                        Text(calendar.title)
-                                    } icon: {
-                                        Image(systemName: "circle.fill")
-                                            .foregroundColor(Color(cgColor: calendar.cgColor))
-                                    }
-                                }
-                            }
-                        } label: {
-                            HStack(spacing: 6) {
-                                if let cal = selectedCalendar {
-                                    Circle()
-                                        .fill(Color(cgColor: cal.cgColor))
-                                        .frame(width: 8, height: 8)
-                                    Text(cal.title)
-                                        .lineLimit(1)
-                                }
-                                Image(systemName: "chevron.up.chevron.down")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.secondary)
-                            }
-                            .font(.system(size: 13))
-                        }
-                        .menuStyle(.borderlessButton)
+                        CalendarPickerView(
+                            calendars: writableCalendars,
+                            selectedCalendar: $selectedCalendar
+                        )
+                        .frame(width: 160)
                     }
 
                     if showError {
@@ -576,61 +539,5 @@ struct EditEventPanelView: View {
             errorMessage = error.localizedDescription
             showError = true
         }
-    }
-}
-
-// MARK: - Panel with Arrow Wrapper
-
-struct PanelWithArrow<Content: View>: View {
-    let content: Content
-    private let arrowWidth: CGFloat = 12
-    private let arrowHeight: CGFloat = 20
-    private let arrowTopOffset: CGFloat = 30  // Distance from top to arrow center
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            content
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(NSColor.windowBackgroundColor))
-                        .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 4)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            // Arrow pointing right, positioned near the top
-            VStack(spacing: 0) {
-                Spacer()
-                    .frame(height: arrowTopOffset - arrowHeight / 2)
-
-                ArrowShape()
-                    .fill(Color(NSColor.windowBackgroundColor))
-                    .frame(width: arrowWidth, height: arrowHeight)
-                    .shadow(color: .black.opacity(0.15), radius: 4, x: 2, y: 0)
-
-                Spacer()
-            }
-            .offset(x: -1) // Slight overlap to hide seam
-        }
-    }
-}
-
-struct ArrowShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: 0, y: 0))
-        path.addLine(to: CGPoint(x: rect.width, y: rect.height / 2))
-        path.addLine(to: CGPoint(x: 0, y: rect.height))
-        path.closeSubpath()
-        return path
-    }
-}
-
-extension View {
-    func panelWithArrow() -> some View {
-        PanelWithArrow { self }
     }
 }
