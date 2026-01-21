@@ -35,11 +35,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Set up the status bar button
         if let button = statusBarItem.button {
-            button.image = NSImage(systemSymbolName: "calendar", accessibilityDescription: "Calendar")
             button.imagePosition = .imageLeading
             button.action = #selector(togglePopover)
             button.target = self
-            updateMenuBarTitle()
+            updateMenuBarAppearance()
         }
 
         // Set up the popover
@@ -52,35 +51,107 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusBarItem.isVisible = true
 
-        // Observe changes to update menu bar title
+        // Observe changes to update menu bar
         calendarManager.$menuBarDisplayMode
             .sink { [weak self] _ in
-                self?.updateMenuBarTitle()
+                self?.updateMenuBarAppearance()
+            }
+            .store(in: &cancellables)
+
+        calendarManager.$menuBarIconStyle
+            .sink { [weak self] _ in
+                self?.updateMenuBarAppearance()
+            }
+            .store(in: &cancellables)
+
+        calendarManager.$showMonthInIcon
+            .sink { [weak self] _ in
+                self?.updateMenuBarAppearance()
+            }
+            .store(in: &cancellables)
+
+        calendarManager.$showDayOfWeekInIcon
+            .sink { [weak self] _ in
+                self?.updateMenuBarAppearance()
+            }
+            .store(in: &cancellables)
+
+        calendarManager.$showDayNumberInIcon
+            .sink { [weak self] _ in
+                self?.updateMenuBarAppearance()
+            }
+            .store(in: &cancellables)
+
+        calendarManager.$customEmoji
+            .sink { [weak self] _ in
+                self?.updateMenuBarAppearance()
+            }
+            .store(in: &cancellables)
+
+        calendarManager.$datetimePatternPreset
+            .sink { [weak self] _ in
+                self?.updateMenuBarAppearance()
+            }
+            .store(in: &cancellables)
+
+        calendarManager.$customDatetimePattern
+            .sink { [weak self] _ in
+                self?.updateMenuBarAppearance()
             }
             .store(in: &cancellables)
 
         calendarManager.$events
             .sink { [weak self] _ in
-                self?.updateMenuBarTitle()
+                self?.updateMenuBarAppearance()
             }
             .store(in: &cancellables)
 
         calendarManager.$enabledCalendarIDs
             .sink { [weak self] _ in
-                self?.updateMenuBarTitle()
+                self?.updateMenuBarAppearance()
             }
             .store(in: &cancellables)
 
-        // Update every minute for event time changes
+        // Update every minute for time changes
         updateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            self?.updateMenuBarTitle()
+            self?.updateMenuBarAppearance()
         }
     }
 
-    func updateMenuBarTitle() {
-        if let button = statusBarItem.button {
-            button.title = calendarManager.menuBarTitle()
+    func updateMenuBarAppearance() {
+        guard let button = statusBarItem.button else { return }
+
+        let iconStyle = calendarManager.menuBarIconStyle
+
+        // Update icon
+        if iconStyle == .none {
+            button.image = nil
+            button.imagePosition = .noImage
+        } else if iconStyle.isEmoji {
+            // Use emoji as icon (no SF Symbol image)
+            button.image = nil
+            button.imagePosition = .noImage
+        } else if let symbolName = iconStyle.sfSymbol {
+            // Use SF Symbol
+            let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+            if iconStyle == .outline {
+                button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Calendar")
+            } else {
+                button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Calendar")?
+                    .withSymbolConfiguration(config)
+            }
+            button.imagePosition = .imageLeading
         }
+
+        // Update title
+        var title = calendarManager.menuBarTitle()
+
+        // Prepend emoji if using emoji icon style
+        if iconStyle.isEmoji, let emoji = calendarManager.menuBarEmoji() {
+            title = emoji + title
+        }
+
+        button.title = title
     }
 
     @objc func togglePopover() {
@@ -100,7 +171,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         addEventPanel.showPanel(relativeTo: popover)
     }
 
-    func showEditEventPanel(for event: EKEvent) {
-        editEventPanel.showPanel(for: event, relativeTo: popover)
+    func showEditEventPanel(for event: EKEvent, atScreenY screenY: CGFloat? = nil) {
+        editEventPanel.showPanel(for: event, relativeTo: popover, atScreenY: screenY)
     }
 }

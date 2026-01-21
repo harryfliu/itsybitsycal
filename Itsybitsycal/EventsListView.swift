@@ -161,6 +161,7 @@ struct DaySectionView: View {
 
 struct EventRowView: View {
     let event: EKEvent
+    @State private var rowFrame: CGRect = .zero
 
     private var isCurrentEvent: Bool {
         let now = Date()
@@ -234,9 +235,52 @@ struct EventRowView: View {
                 .fill(isCurrentEvent ? Color.accentColor.opacity(0.15) : Color.clear)
                 .padding(.horizontal, 6)
         )
+        .background(
+            ScreenFrameReader { frame in
+                rowFrame = frame
+            }
+        )
         .contentShape(Rectangle())
         .onTapGesture {
-            AppDelegate.instance.showEditEventPanel(for: event)
+            AppDelegate.instance.showEditEventPanel(for: event, atScreenY: rowFrame.midY)
+        }
+    }
+}
+
+// Helper to read screen coordinates of a view
+struct ScreenFrameReader: NSViewRepresentable {
+    var onFrame: (CGRect) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = FrameReaderView()
+        view.onFrame = onFrame
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        if let view = nsView as? FrameReaderView {
+            view.onFrame = onFrame
+        }
+    }
+
+    class FrameReaderView: NSView {
+        var onFrame: ((CGRect) -> Void)?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            reportFrame()
+        }
+
+        override func layout() {
+            super.layout()
+            reportFrame()
+        }
+
+        private func reportFrame() {
+            guard let window = window else { return }
+            let frameInWindow = convert(bounds, to: nil)
+            let frameOnScreen = window.convertToScreen(frameInWindow)
+            onFrame?(frameOnScreen)
         }
     }
 }

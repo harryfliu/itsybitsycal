@@ -5,20 +5,22 @@ class EditEventPanel: NSObject {
     private var panel: NSPanel?
     private var calendarManager: CalendarManager
     private var clickMonitor: Any?
+    private var popoverObserver: NSObjectProtocol?
 
     init(calendarManager: CalendarManager) {
         self.calendarManager = calendarManager
         super.init()
     }
 
-    func showPanel(for event: EKEvent, relativeTo popover: NSPopover) {
+    func showPanel(for event: EKEvent, relativeTo popover: NSPopover, atScreenY screenY: CGFloat? = nil) {
         // Close existing panel if any
         panel?.close()
         removeClickMonitor()
+        removePopoverObserver()
 
         // Create the panel - borderless style like Apple Calendar
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 400),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -28,10 +30,10 @@ class EditEventPanel: NSObject {
         panel.level = .floating
         panel.backgroundColor = .clear
         panel.isOpaque = false
-        panel.hasShadow = true
+        panel.hasShadow = false  // We'll use custom shadow in SwiftUI
         panel.isReleasedWhenClosed = false
 
-        // Create the SwiftUI view
+        // Create the SwiftUI view with arrow
         let contentView = EditEventPanelView(
             event: event,
             calendarManager: calendarManager,
@@ -39,17 +41,43 @@ class EditEventPanel: NSObject {
                 self?.closePanel()
             }
         )
+        .panelWithArrow()
 
-        panel.contentView = NSHostingView(rootView: contentView)
+        let hostingView = NSHostingView(rootView: contentView)
+        panel.contentView = hostingView
 
-        // Position the panel to the left of the popover
+        // Get the intrinsic content size
+        let panelSize = hostingView.fittingSize
+        let panelWidth: CGFloat = 320
+        let panelHeight = max(panelSize.height, 200)
+
+        // Position the panel to the left of the popover with arrow pointing at the event
         if let popoverWindow = popover.contentViewController?.view.window {
             let popoverFrame = popoverWindow.frame
+
+            // Calculate Y position so arrow points at the event row
+            let arrowOffset: CGFloat = 30 // Distance from top of panel to arrow center (matches PanelWithArrow)
+            var panelY: CGFloat
+
+            if let targetY = screenY {
+                // Position panel so arrow points at the event's Y position
+                panelY = targetY - arrowOffset
+            } else {
+                // Fallback: center on popover
+                panelY = popoverFrame.midY - panelHeight / 2
+            }
+
+            // Ensure panel stays on screen
+            if let screen = popoverWindow.screen {
+                let screenFrame = screen.visibleFrame
+                panelY = max(screenFrame.minY, min(panelY, screenFrame.maxY - panelHeight))
+            }
+
             let panelFrame = NSRect(
-                x: popoverFrame.minX - 310,
-                y: popoverFrame.minY - 20,
-                width: 300,
-                height: 400
+                x: popoverFrame.minX - panelWidth,
+                y: panelY,
+                width: panelWidth,
+                height: panelHeight
             )
             panel.setFrame(panelFrame, display: true)
         }
@@ -61,10 +89,22 @@ class EditEventPanel: NSObject {
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             self?.closePanel()
         }
+
+        // Observe popover closing to close this panel too
+        if let popoverWindow = popover.contentViewController?.view.window {
+            popoverObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: popoverWindow,
+                queue: .main
+            ) { [weak self] _ in
+                self?.closePanel()
+            }
+        }
     }
 
     func closePanel() {
         removeClickMonitor()
+        removePopoverObserver()
         panel?.close()
         panel = nil
     }
@@ -73,6 +113,13 @@ class EditEventPanel: NSObject {
         if let monitor = clickMonitor {
             NSEvent.removeMonitor(monitor)
             clickMonitor = nil
+        }
+    }
+
+    private func removePopoverObserver() {
+        if let observer = popoverObserver {
+            NotificationCenter.default.removeObserver(observer)
+            popoverObserver = nil
         }
     }
 
@@ -201,12 +248,6 @@ struct EditEventPanelView: View {
         }
         .frame(width: 300)
         .fixedSize(horizontal: false, vertical: true)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.windowBackgroundColor))
-                .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 4)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 12))
         .alert("Delete Event", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
@@ -535,5 +576,61 @@ struct EditEventPanelView: View {
             errorMessage = error.localizedDescription
             showError = true
         }
+    }
+}
+
+// MARK: - Panel with Arrow Wrapper
+
+struct PanelWithArrow<Content: View>: View {
+    let content: Content
+    private let arrowWidth: CGFloat = 12
+    private let arrowHeight: CGFloat = 20
+    private let arrowTopOffset: CGFloat = 30  // Distance from top to arrow center
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            content
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(NSColor.windowBackgroundColor))
+                        .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 4)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            // Arrow pointing right, positioned near the top
+            VStack(spacing: 0) {
+                Spacer()
+                    .frame(height: arrowTopOffset - arrowHeight / 2)
+
+                ArrowShape()
+                    .fill(Color(NSColor.windowBackgroundColor))
+                    .frame(width: arrowWidth, height: arrowHeight)
+                    .shadow(color: .black.opacity(0.15), radius: 4, x: 2, y: 0)
+
+                Spacer()
+            }
+            .offset(x: -1) // Slight overlap to hide seam
+        }
+    }
+}
+
+struct ArrowShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: 0, y: 0))
+        path.addLine(to: CGPoint(x: rect.width, y: rect.height / 2))
+        path.addLine(to: CGPoint(x: 0, y: rect.height))
+        path.closeSubpath()
+        return path
+    }
+}
+
+extension View {
+    func panelWithArrow() -> some View {
+        PanelWithArrow { self }
     }
 }

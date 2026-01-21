@@ -65,6 +65,7 @@ struct CalendarPickerView: NSViewRepresentable {
 class AddEventPanel: NSObject {
     private var panel: NSPanel?
     private var calendarManager: CalendarManager
+    private var popoverObserver: NSObjectProtocol?
 
     init(calendarManager: CalendarManager) {
         self.calendarManager = calendarManager
@@ -74,41 +75,41 @@ class AddEventPanel: NSObject {
     func showPanel(relativeTo popover: NSPopover) {
         // Close existing panel if any
         panel?.close()
+        removePopoverObserver()
 
-        // Create the panel
+        // Create the panel - borderless style to allow custom arrow shape
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 280, height: 420),
-            styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel],
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 420),
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
 
         panel.isFloatingPanel = true
         panel.level = .floating
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
-        panel.backgroundColor = NSColor.windowBackgroundColor
-        panel.hasShadow = true
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = false  // We'll use custom shadow in SwiftUI
         panel.isReleasedWhenClosed = false
 
-        // Create the SwiftUI view
+        // Create the SwiftUI view with arrow
         let contentView = AddEventPanelView(
             calendarManager: calendarManager,
             onClose: { [weak self] in
                 self?.closePanel()
             }
         )
+        .panelWithArrow()
 
         panel.contentView = NSHostingView(rootView: contentView)
 
-        // Position the panel to the left of the popover
+        // Position the panel to the left of the popover (accounting for arrow width)
         if let popoverWindow = popover.contentViewController?.view.window {
             let popoverFrame = popoverWindow.frame
             let panelFrame = NSRect(
-                x: popoverFrame.minX - 290,
+                x: popoverFrame.minX - 300,
                 y: popoverFrame.minY,
-                width: 280,
+                width: 300,
                 height: 420
             )
             panel.setFrame(panelFrame, display: true)
@@ -116,11 +117,30 @@ class AddEventPanel: NSObject {
 
         panel.orderFront(nil)
         self.panel = panel
+
+        // Observe popover closing to close this panel too
+        if let popoverWindow = popover.contentViewController?.view.window {
+            popoverObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: popoverWindow,
+                queue: .main
+            ) { [weak self] _ in
+                self?.closePanel()
+            }
+        }
     }
 
     func closePanel() {
+        removePopoverObserver()
         panel?.close()
         panel = nil
+    }
+
+    private func removePopoverObserver() {
+        if let observer = popoverObserver {
+            NotificationCenter.default.removeObserver(observer)
+            popoverObserver = nil
+        }
     }
 
     var isVisible: Bool {
@@ -329,7 +349,6 @@ struct AddEventPanelView: View {
             }
         }
         .frame(width: 280, height: 420)
-        .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             selectedCalendar = defaultCalendar
         }
@@ -371,5 +390,61 @@ struct AddEventPanelView: View {
             errorMessage = error.localizedDescription
             showError = true
         }
+    }
+}
+
+// MARK: - Panel with Arrow Wrapper
+
+struct AddPanelWithArrow<Content: View>: View {
+    let content: Content
+    private let arrowWidth: CGFloat = 12
+    private let arrowHeight: CGFloat = 20
+    private let arrowTopOffset: CGFloat = 30  // Distance from top to arrow center
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            content
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(NSColor.windowBackgroundColor))
+                        .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 4)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            // Arrow pointing right, positioned near the top
+            VStack(spacing: 0) {
+                Spacer()
+                    .frame(height: arrowTopOffset - arrowHeight / 2)
+
+                AddArrowShape()
+                    .fill(Color(NSColor.windowBackgroundColor))
+                    .frame(width: arrowWidth, height: arrowHeight)
+                    .shadow(color: .black.opacity(0.15), radius: 4, x: 2, y: 0)
+
+                Spacer()
+            }
+            .offset(x: -1) // Slight overlap to hide seam
+        }
+    }
+}
+
+struct AddArrowShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: 0, y: 0))
+        path.addLine(to: CGPoint(x: rect.width, y: rect.height / 2))
+        path.addLine(to: CGPoint(x: 0, y: rect.height))
+        path.closeSubpath()
+        return path
+    }
+}
+
+extension AddEventPanelView {
+    func panelWithArrow() -> some View {
+        AddPanelWithArrow { self }
     }
 }
