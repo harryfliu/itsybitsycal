@@ -103,7 +103,7 @@ struct CalendarGridView: View {
                 ForEach(Array(weekdays.enumerated()), id: \.offset) { index, day in
                     Text(String(day.prefix(1)))
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(index == 0 || index == 6 ? .red.opacity(0.8) : .secondary)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -179,6 +179,11 @@ struct DayCell: View {
         Calendar.current.isDate(date, equalTo: calendarManager.currentMonth, toGranularity: .month)
     }
 
+    private var isWeekend: Bool {
+        let weekday = Calendar.current.component(.weekday, from: date)
+        return weekday == 1 || weekday == 7 // Sunday = 1, Saturday = 7
+    }
+
     private var dayNumber: String {
         let day = Calendar.current.component(.day, from: date)
         return "\(day)"
@@ -224,7 +229,9 @@ struct DayCell: View {
         if isToday {
             return .white
         } else if !isCurrentMonth {
-            return .secondary.opacity(0.5)
+            return isWeekend ? Color.red.opacity(0.3) : .secondary.opacity(0.5)
+        } else if isWeekend {
+            return .red.opacity(0.8)
         } else {
             return .primary
         }
@@ -252,7 +259,7 @@ struct ToolbarView: View {
 
     var body: some View {
         HStack {
-            Button(action: {}) {
+            Button(action: { AppDelegate.instance.showAddEventPanel() }) {
                 Image(systemName: "plus")
                     .font(.system(size: 13))
             }
@@ -330,16 +337,8 @@ struct SettingsView: View {
                         }
                     }
 
-                    // Calendars section
-                    SettingsSectionView(title: "Calendars") {
-                        ForEach(calendarManager.calendars, id: \.calendarIdentifier) { calendar in
-                            CalendarToggleRow(
-                                calendar: calendar,
-                                isEnabled: calendarManager.isCalendarEnabled(calendar),
-                                onToggle: { calendarManager.toggleCalendar(calendar) }
-                            )
-                        }
-                    }
+                    // Calendars grouped by source
+                    CalendarsListView(calendarManager: calendarManager)
 
                     // General section
                     SettingsSectionView(title: "General") {
@@ -397,6 +396,53 @@ struct SettingsView: View {
     }
 }
 
+struct CalendarsListView: View {
+    @ObservedObject var calendarManager: CalendarManager
+
+    private var groupedCalendars: [(String, [EKCalendar])] {
+        var groups: [String: [EKCalendar]] = [:]
+
+        for calendar in calendarManager.calendars {
+            let sourceName = calendar.source.title
+            if groups[sourceName] == nil {
+                groups[sourceName] = []
+            }
+            groups[sourceName]?.append(calendar)
+        }
+
+        // Sort groups by name, but put iCloud first if present
+        return groups.sorted { first, second in
+            if first.key.lowercased().contains("icloud") { return true }
+            if second.key.lowercased().contains("icloud") { return false }
+            return first.key < second.key
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(groupedCalendars, id: \.0) { sourceName, calendars in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(sourceName)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+
+                    VStack(spacing: 0) {
+                        ForEach(calendars, id: \.calendarIdentifier) { calendar in
+                            CalendarToggleRow(
+                                calendar: calendar,
+                                isEnabled: calendarManager.isCalendarEnabled(calendar),
+                                onToggle: { calendarManager.toggleCalendar(calendar) }
+                            )
+                        }
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(8)
+                }
+            }
+        }
+    }
+}
+
 struct CalendarToggleRow: View {
     let calendar: EKCalendar
     let isEnabled: Bool
@@ -404,10 +450,14 @@ struct CalendarToggleRow: View {
 
     var body: some View {
         Button(action: onToggle) {
-            HStack {
-                Circle()
+            HStack(spacing: 8) {
+                Image(systemName: isEnabled ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 13))
+                    .foregroundColor(isEnabled ? .accentColor : .secondary)
+
+                RoundedRectangle(cornerRadius: 2)
                     .fill(Color(cgColor: calendar.cgColor))
-                    .frame(width: 10, height: 10)
+                    .frame(width: 12, height: 12)
 
                 Text(calendar.title)
                     .font(.system(size: 12))
@@ -415,13 +465,9 @@ struct CalendarToggleRow: View {
                     .lineLimit(1)
 
                 Spacer()
-
-                Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 14))
-                    .foregroundColor(isEnabled ? .accentColor : .secondary)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

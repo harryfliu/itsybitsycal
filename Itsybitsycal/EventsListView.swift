@@ -44,26 +44,59 @@ struct EventsListView: View {
         return formatter.string(from: date)
     }
 
+    /// Find the current or next upcoming event to scroll to
+    private var targetEventId: String? {
+        let now = Date()
+        var allEvents: [EKEvent] = []
+
+        for (_, _, events) in groupedEvents {
+            allEvents.append(contentsOf: events)
+        }
+
+        // First, look for a currently happening event
+        if let currentEvent = allEvents.first(where: { $0.startDate <= now && $0.endDate > now }) {
+            return currentEvent.eventIdentifier
+        }
+
+        // Otherwise, find the next upcoming event
+        if let nextEvent = allEvents.first(where: { $0.startDate > now }) {
+            return nextEvent.eventIdentifier
+        }
+
+        return nil
+    }
+
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                if !calendarManager.hasAccess {
-                    NoAccessView()
-                } else if groupedEvents.isEmpty {
-                    EmptyEventsView()
-                } else {
-                    ForEach(groupedEvents, id: \.0) { dayLabel, dateLabel, events in
-                        DaySectionView(
-                            dayLabel: dayLabel,
-                            dateLabel: dateLabel,
-                            events: events
-                        )
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if !calendarManager.hasAccess {
+                        NoAccessView()
+                    } else if groupedEvents.isEmpty {
+                        EmptyEventsView()
+                    } else {
+                        ForEach(groupedEvents, id: \.0) { dayLabel, dateLabel, events in
+                            DaySectionView(
+                                dayLabel: dayLabel,
+                                dateLabel: dateLabel,
+                                events: events
+                            )
+                        }
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+            .frame(maxHeight: 200)
+            .onAppear {
+                if let eventId = targetEventId {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            proxy.scrollTo(eventId, anchor: .top)
+                        }
                     }
                 }
             }
-            .padding(.vertical, 8)
         }
-        .frame(maxHeight: 200)
     }
 }
 
@@ -120,6 +153,7 @@ struct DaySectionView: View {
             // Events
             ForEach(events, id: \.eventIdentifier) { event in
                 EventRowView(event: event)
+                    .id(event.eventIdentifier)
             }
         }
     }
@@ -202,34 +236,7 @@ struct EventRowView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            openEvent()
-        }
-    }
-
-    private func openEvent() {
-        // Try to open video call link if available
-        if hasVideoCall {
-            if let url = event.url {
-                NSWorkspace.shared.open(url)
-                return
-            }
-            if let notes = event.notes {
-                let patterns = ["https://.*zoom\\.us/[^\\s]+", "https://meet\\.google\\.com/[^\\s]+", "https://teams\\.microsoft\\.com/[^\\s]+"]
-                for pattern in patterns {
-                    if let regex = try? NSRegularExpression(pattern: pattern),
-                       let match = regex.firstMatch(in: notes, range: NSRange(notes.startIndex..., in: notes)),
-                       let range = Range(match.range, in: notes),
-                       let url = URL(string: String(notes[range])) {
-                        NSWorkspace.shared.open(url)
-                        return
-                    }
-                }
-            }
-        }
-
-        // Open in Calendar app
-        if let url = URL(string: "ical://ekevent/\(event.eventIdentifier ?? "")") {
-            NSWorkspace.shared.open(url)
+            AppDelegate.instance.showEditEventPanel(for: event)
         }
     }
 }

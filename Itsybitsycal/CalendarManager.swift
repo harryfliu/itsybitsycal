@@ -2,6 +2,49 @@ import Foundation
 import EventKit
 import SwiftUI
 
+// MARK: - Event Creation Enums
+
+enum RecurrenceRule: String, CaseIterable {
+    case never = "Never"
+    case everyDay = "Every Day"
+    case everyWeek = "Every Week"
+    case everyTwoWeeks = "Every 2 Weeks"
+    case everyMonth = "Every Month"
+    case everyYear = "Every Year"
+}
+
+enum AlertOption: String, CaseIterable {
+    case none = "None"
+    case atTime = "At time of event"
+    case fiveMinutes = "5 minutes before"
+    case tenMinutes = "10 minutes before"
+    case fifteenMinutes = "15 minutes before"
+    case thirtyMinutes = "30 minutes before"
+    case oneHour = "1 hour before"
+    case twoHours = "2 hours before"
+    case oneDay = "1 day before"
+    case twoDays = "2 days before"
+    case oneWeek = "1 week before"
+
+    var alarmOffset: TimeInterval? {
+        switch self {
+        case .none: return nil
+        case .atTime: return 0
+        case .fiveMinutes: return -5 * 60
+        case .tenMinutes: return -10 * 60
+        case .fifteenMinutes: return -15 * 60
+        case .thirtyMinutes: return -30 * 60
+        case .oneHour: return -60 * 60
+        case .twoHours: return -2 * 60 * 60
+        case .oneDay: return -24 * 60 * 60
+        case .twoDays: return -2 * 24 * 60 * 60
+        case .oneWeek: return -7 * 24 * 60 * 60
+        }
+    }
+}
+
+// MARK: - Menu Bar Display
+
 enum MenuBarDisplayMode: Int, CaseIterable {
     case dayOnly = 0
     case monthAndDay = 1
@@ -224,6 +267,103 @@ class CalendarManager: ObservableObject {
         if let newMonth = Calendar.current.date(byAdding: .month, value: 1, to: currentMonth) {
             currentMonth = newMonth
             fetchEvents()
+        }
+    }
+
+    func saveEvent(
+        title: String,
+        location: String?,
+        startDate: Date,
+        endDate: Date,
+        isAllDay: Bool,
+        calendar: EKCalendar,
+        recurrence: RecurrenceRule,
+        endRepeatDate: Date?,
+        alert: AlertOption
+    ) -> Result<EKEvent, Error> {
+        let event = EKEvent(eventStore: eventStore)
+        event.title = title
+        event.location = location
+        event.startDate = startDate
+        event.endDate = endDate
+        event.isAllDay = isAllDay
+        event.calendar = calendar
+
+        // Set recurrence rule if not "never"
+        if recurrence != .never {
+            var recurrenceEnd: EKRecurrenceEnd? = nil
+            if let endDate = endRepeatDate {
+                recurrenceEnd = EKRecurrenceEnd(end: endDate)
+            }
+
+            let rule: EKRecurrenceRule?
+            switch recurrence {
+            case .never:
+                rule = nil
+            case .everyDay:
+                rule = EKRecurrenceRule(recurrenceWith: .daily, interval: 1, end: recurrenceEnd)
+            case .everyWeek:
+                rule = EKRecurrenceRule(recurrenceWith: .weekly, interval: 1, end: recurrenceEnd)
+            case .everyTwoWeeks:
+                rule = EKRecurrenceRule(recurrenceWith: .weekly, interval: 2, end: recurrenceEnd)
+            case .everyMonth:
+                rule = EKRecurrenceRule(recurrenceWith: .monthly, interval: 1, end: recurrenceEnd)
+            case .everyYear:
+                rule = EKRecurrenceRule(recurrenceWith: .yearly, interval: 1, end: recurrenceEnd)
+            }
+
+            if let rule = rule {
+                event.addRecurrenceRule(rule)
+            }
+        }
+
+        // Set alarm if not "none"
+        if let offset = alert.alarmOffset {
+            let alarm = EKAlarm(relativeOffset: offset)
+            event.addAlarm(alarm)
+        }
+
+        do {
+            try eventStore.save(event, span: .thisEvent)
+            fetchEvents()
+            return .success(event)
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    func updateEvent(
+        _ event: EKEvent,
+        title: String,
+        location: String?,
+        startDate: Date,
+        endDate: Date,
+        isAllDay: Bool,
+        calendar: EKCalendar
+    ) -> Result<Void, Error> {
+        event.title = title
+        event.location = location
+        event.startDate = startDate
+        event.endDate = endDate
+        event.isAllDay = isAllDay
+        event.calendar = calendar
+
+        do {
+            try eventStore.save(event, span: .thisEvent)
+            fetchEvents()
+            return .success(())
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    func deleteEvent(_ event: EKEvent) -> Result<Void, Error> {
+        do {
+            try eventStore.remove(event, span: .thisEvent)
+            fetchEvents()
+            return .success(())
+        } catch {
+            return .failure(error)
         }
     }
 }

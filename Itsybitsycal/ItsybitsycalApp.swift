@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import EventKit
 
 @main
 struct ItsybitsycalApp: App {
@@ -21,12 +22,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }()
     var popover: NSPopover!
     var calendarManager: CalendarManager!
+    var addEventPanel: AddEventPanel!
+    var editEventPanel: EditEventPanel!
     private var cancellables = Set<AnyCancellable>()
     private var updateTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppDelegate.instance = self
         calendarManager = CalendarManager()
+        addEventPanel = AddEventPanel(calendarManager: calendarManager)
+        editEventPanel = EditEventPanel(calendarManager: calendarManager)
 
         // Set up the status bar button
         if let button = statusBarItem.button {
@@ -82,10 +87,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let button = statusBarItem.button {
             if popover.isShown {
                 popover.performClose(nil)
+                addEventPanel.closePanel()
+                editEventPanel.closePanel()
             } else {
                 popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
                 NSApp.activate(ignoringOtherApps: true)
             }
         }
+    }
+
+    func showAddEventPanel() {
+        addEventPanel.showPanel(relativeTo: popover)
+    }
+
+    func showEditEventPanel(for event: EKEvent) {
+        editEventPanel.showPanel(for: event, relativeTo: popover)
     }
 }

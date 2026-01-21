@@ -12,6 +12,8 @@
 		A1000004001 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000 /* CalendarView.swift */; };
 		A1000005001 /* EventsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000005000 /* EventsListView.swift */; };
 		A1000016001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000016000 /* Assets.xcassets */; };
+		A1000017001 /* AddEventPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000017000 /* AddEventPanel.swift */; };
+		A1000018001 /* EditEventPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000018000 /* EditEventPanel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +25,8 @@
 		A1000006000 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000007000 /* Itsybitsycal.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Itsybitsycal.entitlements; sourceTree = "<group>"; };
 		A1000016000 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1000017000 /* AddEventPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEventPanel.swift; sourceTree = "<group>"; };
+		A1000018000 /* EditEventPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditEventPanel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -51,6 +55,8 @@
 				A1000003000 /* CalendarManager.swift */,
 				A1000004000 /* CalendarView.swift */,
 				A1000005000 /* EventsListView.swift */,
+				A1000017000 /* AddEventPanel.swift */,
+				A1000018000 /* EditEventPanel.swift */,
 				A1000016000 /* Assets.xcassets */,
 				A1000006000 /* Info.plist */,
 				A1000007000 /* Itsybitsycal.entitlements */,
@@ -139,6 +145,8 @@
 				A1000003001 /* CalendarManager.swift in Sources */,
 				A1000004001 /* CalendarView.swift in Sources */,
 				A1000005001 /* EventsListView.swift in Sources */,
+				A1000017001 /* AddEventPanel.swift in Sources */,
+				A1000018001 /* EditEventPanel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
