@@ -505,18 +505,10 @@ struct IconStylePicker: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 5), spacing: 6) {
                 ForEach(iconStyles, id: \.rawValue) { style in
                     if style == .custom {
-                        // Custom button opens emoji picker
-                        IconStyleButton(
-                            style: style,
+                        CustomEmojiButton(
                             isSelected: selectedStyle == style,
-                            customEmoji: customEmoji,
-                            action: {
-                                selectedStyle = style
-                            }
-                        )
-                        .overlay(
-                            EmojiPickerButton(selectedEmoji: $customEmoji, isActive: selectedStyle == .custom)
-                                .opacity(0.01) // Nearly invisible but captures clicks
+                            customEmoji: $customEmoji,
+                            onSelect: { selectedStyle = style }
                         )
                     } else {
                         IconStyleButton(
@@ -532,71 +524,114 @@ struct IconStylePicker: View {
     }
 }
 
-// MARK: - Emoji Picker Integration
+// MARK: - Custom Emoji Button with Picker
 
-struct EmojiPickerButton: NSViewRepresentable {
-    @Binding var selectedEmoji: String
-    var isActive: Bool
+struct CustomEmojiButton: NSViewRepresentable {
+    let isSelected: Bool
+    @Binding var customEmoji: String
+    let onSelect: () -> Void
 
-    func makeNSView(context: Context) -> EmojiTextField {
-        let textField = EmojiTextField()
-        textField.delegate = context.coordinator
-        textField.isBezeled = false
-        textField.drawsBackground = false
-        textField.isEditable = true
-        textField.stringValue = ""
-        return textField
-    }
-
-    func updateNSView(_ nsView: EmojiTextField, context: Context) {
-        nsView.onEmojiSelected = { emoji in
+    func makeNSView(context: Context) -> CustomEmojiButtonView {
+        let view = CustomEmojiButtonView()
+        view.onSelect = onSelect
+        view.onEmojiChanged = { emoji in
             DispatchQueue.main.async {
-                self.selectedEmoji = emoji
+                self.customEmoji = emoji
             }
         }
+        return view
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, NSTextFieldDelegate {
-        var parent: EmojiPickerButton
-
-        init(_ parent: EmojiPickerButton) {
-            self.parent = parent
-        }
-
-        func controlTextDidChange(_ obj: Notification) {
-            if let textField = obj.object as? NSTextField {
-                let text = textField.stringValue
-                // Extract just the first emoji character
-                if let firstChar = text.first, firstChar.isEmoji {
-                    parent.selectedEmoji = String(firstChar)
-                }
-                // Clear the field for next input
-                textField.stringValue = ""
+    func updateNSView(_ nsView: CustomEmojiButtonView, context: Context) {
+        nsView.isSelected = isSelected
+        nsView.currentEmoji = customEmoji
+        nsView.onSelect = onSelect
+        nsView.onEmojiChanged = { emoji in
+            DispatchQueue.main.async {
+                self.customEmoji = emoji
             }
         }
+        nsView.needsDisplay = true
     }
 }
 
-class EmojiTextField: NSTextField {
-    var onEmojiSelected: ((String) -> Void)?
+class CustomEmojiButtonView: NSView, NSTextInputClient {
+    var isSelected: Bool = false
+    var currentEmoji: String = "🐸"
+    var onSelect: (() -> Void)?
+    var onEmojiChanged: ((String) -> Void)?
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let bgColor = isSelected ? NSColor.controlAccentColor.withAlphaComponent(0.2) : NSColor.clear
+        let borderColor = isSelected ? NSColor.controlAccentColor : NSColor.secondaryLabelColor.withAlphaComponent(0.3)
+
+        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
+        bgColor.setFill()
+        path.fill()
+        borderColor.setStroke()
+        path.lineWidth = 1
+        path.stroke()
+
+        // Draw emoji
+        let emoji = currentEmoji.isEmpty ? "🐸" : currentEmoji
+        let emojiAttr: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 18)]
+        let emojiSize = emoji.size(withAttributes: emojiAttr)
+        let emojiRect = NSRect(
+            x: (bounds.width - emojiSize.width) / 2,
+            y: (bounds.height - emojiSize.height) / 2 + 6,
+            width: emojiSize.width,
+            height: emojiSize.height
+        )
+        emoji.draw(in: emojiRect, withAttributes: emojiAttr)
+
+        // Draw "Custom" label
+        let label = "Custom"
+        let labelAttr: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 8),
+            .foregroundColor: NSColor.secondaryLabelColor
+        ]
+        let labelSize = label.size(withAttributes: labelAttr)
+        let labelRect = NSRect(
+            x: (bounds.width - labelSize.width) / 2,
+            y: 6,
+            width: labelSize.width,
+            height: labelSize.height
+        )
+        label.draw(in: labelRect, withAttributes: labelAttr)
+    }
 
     override func mouseDown(with event: NSEvent) {
-        // Become first responder and show emoji picker
-        self.window?.makeFirstResponder(self)
+        onSelect?()
+        window?.makeFirstResponder(self)
         NSApp.orderFrontCharacterPalette(nil)
     }
 
-    override func textDidChange(_ notification: Notification) {
-        let text = self.stringValue
-        if let firstChar = text.first, firstChar.isEmoji {
-            onEmojiSelected?(String(firstChar))
+    // MARK: - NSTextInputClient
+
+    func insertText(_ string: Any, replacementRange: NSRange) {
+        guard let str = string as? String, let char = str.first else { return }
+        if char.isEmoji {
+            currentEmoji = String(char)
+            onEmojiChanged?(currentEmoji)
+            needsDisplay = true
         }
-        self.stringValue = ""
     }
+
+    func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {}
+    func unmarkText() {}
+    func selectedRange() -> NSRange { NSRange(location: NSNotFound, length: 0) }
+    func markedRange() -> NSRange { NSRange(location: NSNotFound, length: 0) }
+    func hasMarkedText() -> Bool { false }
+    func attributedSubstring(forProposedRange range: NSRange, actualRange: NSRangePointer?) -> NSAttributedString? { nil }
+    func validAttributesForMarkedText() -> [NSAttributedString.Key] { [] }
+    func firstRect(forCharacterRange range: NSRange, actualRange: NSRangePointer?) -> NSRect { .zero }
+    func characterIndex(for point: NSPoint) -> Int { 0 }
 }
 
 extension Character {
@@ -613,42 +648,44 @@ struct IconStyleButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
-                    )
+        // Use a tappable view instead of Button to fix double-click issue in popovers
+        ZStack {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
+                )
 
-                VStack(spacing: 2) {
-                    if style == .none {
-                        Image(systemName: "slash.circle")
-                            .font(.system(size: 16))
-                            .foregroundColor(.secondary)
-                    } else if style == .custom {
-                        Text(customEmoji.isEmpty ? "?" : customEmoji)
-                            .font(.system(size: 18))
-                    } else if let emoji = style.emoji {
-                        Text(emoji)
-                            .font(.system(size: 18))
-                    } else if let symbol = style.sfSymbol {
-                        Image(systemName: symbol)
-                            .font(.system(size: 16))
-                            .foregroundColor(.primary)
-                    }
-
-                    Text(style.displayName)
-                        .font(.system(size: 8))
+            VStack(spacing: 2) {
+                if style == .none {
+                    Image(systemName: "slash.circle")
+                        .font(.system(size: 16))
                         .foregroundColor(.secondary)
-                        .lineLimit(1)
+                } else if style == .custom {
+                    Text(customEmoji.isEmpty ? "?" : customEmoji)
+                        .font(.system(size: 18))
+                } else if let emoji = style.emoji {
+                    Text(emoji)
+                        .font(.system(size: 18))
+                } else if let symbol = style.sfSymbol {
+                    Image(systemName: symbol)
+                        .font(.system(size: 16))
+                        .foregroundColor(.primary)
                 }
-                .padding(.vertical, 6)
+
+                Text(style.displayName)
+                    .font(.system(size: 8))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
-            .frame(height: 50)
+            .padding(.vertical, 6)
         }
-        .buttonStyle(.plain)
+        .frame(height: 50)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            action()
+        }
     }
 }
 
@@ -657,23 +694,23 @@ struct ToggleRow: View {
     @Binding var isOn: Bool
 
     var body: some View {
-        Button(action: { isOn.toggle() }) {
-            HStack {
-                Image(systemName: isOn ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 13))
-                    .foregroundColor(isOn ? .accentColor : .secondary)
+        HStack {
+            Image(systemName: isOn ? "checkmark.square.fill" : "square")
+                .font(.system(size: 13))
+                .foregroundColor(isOn ? .accentColor : .secondary)
 
-                Text(title)
-                    .font(.system(size: 12))
-                    .foregroundColor(.primary)
+            Text(title)
+                .font(.system(size: 12))
+                .foregroundColor(.primary)
 
-                Spacer()
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
+            Spacer()
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isOn.toggle()
+        }
     }
 }
 
@@ -721,28 +758,28 @@ struct DatetimePresetRow: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: isSelected ? "circle.fill" : "circle")
-                    .font(.system(size: 10))
-                    .foregroundColor(isSelected ? .accentColor : .secondary)
+        HStack {
+            Image(systemName: isSelected ? "circle.fill" : "circle")
+                .font(.system(size: 10))
+                .foregroundColor(isSelected ? .accentColor : .secondary)
 
-                Text(preset.displayName)
-                    .font(.system(size: 11))
-                    .foregroundColor(.primary)
+            Text(preset.displayName)
+                .font(.system(size: 11))
+                .foregroundColor(.primary)
 
-                Spacer()
+            Spacer()
 
-                if preset != .custom && preset != .none {
-                    Text(preset.example)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                }
+            if preset != .custom && preset != .none {
+                Text(preset.example)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.secondary)
             }
-            .padding(.vertical, 3)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 3)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            action()
+        }
     }
 }
 

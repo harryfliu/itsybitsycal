@@ -54,66 +54,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusBarItem.isVisible = true
 
-        // Observe changes to update menu bar
-        calendarManager.$menuBarDisplayMode
-            .sink { [weak self] _ in
-                self?.updateMenuBarAppearance()
-            }
-            .store(in: &cancellables)
-
-        calendarManager.$menuBarIconStyle
-            .sink { [weak self] _ in
-                self?.updateMenuBarAppearance()
-            }
-            .store(in: &cancellables)
-
-        calendarManager.$showMonthInIcon
-            .sink { [weak self] _ in
-                self?.updateMenuBarAppearance()
-            }
-            .store(in: &cancellables)
-
-        calendarManager.$showDayOfWeekInIcon
-            .sink { [weak self] _ in
-                self?.updateMenuBarAppearance()
-            }
-            .store(in: &cancellables)
-
-        calendarManager.$showDayNumberInIcon
-            .sink { [weak self] _ in
-                self?.updateMenuBarAppearance()
-            }
-            .store(in: &cancellables)
-
-        calendarManager.$customEmoji
-            .sink { [weak self] _ in
-                self?.updateMenuBarAppearance()
-            }
-            .store(in: &cancellables)
-
-        calendarManager.$datetimePatternPreset
-            .sink { [weak self] _ in
-                self?.updateMenuBarAppearance()
-            }
-            .store(in: &cancellables)
-
-        calendarManager.$customDatetimePattern
-            .sink { [weak self] _ in
-                self?.updateMenuBarAppearance()
-            }
-            .store(in: &cancellables)
-
-        calendarManager.$events
-            .sink { [weak self] _ in
-                self?.updateMenuBarAppearance()
-            }
-            .store(in: &cancellables)
-
-        calendarManager.$enabledCalendarIDs
-            .sink { [weak self] _ in
-                self?.updateMenuBarAppearance()
-            }
-            .store(in: &cancellables)
+        // Observe changes to update menu bar - merge all publishers that affect appearance
+        Publishers.MergeMany(
+            calendarManager.$menuBarDisplayMode.map { _ in () }.eraseToAnyPublisher(),
+            calendarManager.$menuBarIconStyle.map { _ in () }.eraseToAnyPublisher(),
+            calendarManager.$showMonthInIcon.map { _ in () }.eraseToAnyPublisher(),
+            calendarManager.$showDayOfWeekInIcon.map { _ in () }.eraseToAnyPublisher(),
+            calendarManager.$showDayNumberInIcon.map { _ in () }.eraseToAnyPublisher(),
+            calendarManager.$customEmoji.map { _ in () }.eraseToAnyPublisher(),
+            calendarManager.$datetimePatternPreset.map { _ in () }.eraseToAnyPublisher(),
+            calendarManager.$customDatetimePattern.map { _ in () }.eraseToAnyPublisher(),
+            calendarManager.$events.map { _ in () }.eraseToAnyPublisher(),
+            calendarManager.$enabledCalendarIDs.map { _ in () }.eraseToAnyPublisher()
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] in
+            self?.updateMenuBarAppearance()
+        }
+        .store(in: &cancellables)
 
         // Update every minute for time changes
         updateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
