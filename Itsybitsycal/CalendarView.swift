@@ -9,7 +9,7 @@ struct CalendarView: View {
     var body: some View {
         VStack(spacing: 0) {
             if showSettings {
-                SettingsView(showSettings: $showSettings)
+                SettingsView(showSettings: $showSettings, calendarManager: calendarManager)
             } else {
                 // Header with month/year and navigation
                 CalendarHeaderView(calendarManager: calendarManager)
@@ -299,6 +299,7 @@ struct ToolbarButtonStyle: ButtonStyle {
 
 struct SettingsView: View {
     @Binding var showSettings: Bool
+    @ObservedObject var calendarManager: CalendarManager
 
     var body: some View {
         VStack(spacing: 0) {
@@ -324,6 +325,28 @@ struct SettingsView: View {
             // Settings content
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // Menu Bar section
+                    SettingsSectionView(title: "Menu Bar Display") {
+                        ForEach(MenuBarDisplayMode.allCases, id: \.rawValue) { mode in
+                            MenuBarModeRow(
+                                mode: mode,
+                                isSelected: calendarManager.menuBarDisplayMode == mode,
+                                onSelect: { calendarManager.menuBarDisplayMode = mode }
+                            )
+                        }
+                    }
+
+                    // Calendars section
+                    SettingsSectionView(title: "Calendars") {
+                        ForEach(calendarManager.calendars, id: \.calendarIdentifier) { calendar in
+                            CalendarToggleRow(
+                                calendar: calendar,
+                                isEnabled: calendarManager.isCalendarEnabled(calendar),
+                                onToggle: { calendarManager.toggleCalendar(calendar) }
+                            )
+                        }
+                    }
+
                     // General section
                     SettingsSectionView(title: "General") {
                         SettingsRowView(
@@ -377,6 +400,69 @@ struct SettingsView: View {
                 .padding(14)
             }
         }
+    }
+}
+
+struct CalendarToggleRow: View {
+    let calendar: EKCalendar
+    let isEnabled: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            HStack {
+                Circle()
+                    .fill(Color(cgColor: calendar.cgColor))
+                    .frame(width: 10, height: 10)
+
+                Text(calendar.title)
+                    .font(.system(size: 12))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+
+                Spacer()
+
+                Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 14))
+                    .foregroundColor(isEnabled ? .accentColor : .secondary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct MenuBarModeRow: View {
+    let mode: MenuBarDisplayMode
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(mode.description)
+                        .font(.system(size: 12))
+                        .foregroundColor(.primary)
+
+                    Text(mode.example)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 14))
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
