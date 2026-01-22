@@ -5,6 +5,12 @@ A minimal calendar for your browser toolbar. View your Google Calendar events at
 ![Chrome](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+## The Story
+
+This started as a macOS menu bar app built with Claude Code in ~1.5 hours. Then, I ported it to an entire Chrome extension which was built in ~20 minutes with Claude Code. Both versions demonstrate what's possible with AI-assisted development.
+
+A macOS native version is also available in this repo (see `Itsybitsycal/` folder).
+
 ## Features
 
 - **Calendar popup** - Click the extension icon to see a monthly calendar view
@@ -101,12 +107,6 @@ chrome-extension/
 ├── popup/            # Main calendar UI
 └── options/          # Settings page
 ```
-
-## The Story
-
-This started as a macOS menu bar app built with Claude Code in ~1.5 hours. After internal feedback suggesting a Chrome extension would be more accessible, the entire Chrome extension was built in ~20 minutes with Claude Code. Both versions demonstrate what's possible with AI-assisted development.
-
-A macOS native version is also available in this repo (see `Itsybitsycal/` folder) but requires calendar permissions that may not be approved for enterprise use.
 
 ## Credits
 
