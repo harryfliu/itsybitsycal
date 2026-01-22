@@ -104,7 +104,7 @@ chrome-extension/
 
 ## The Story
 
-This started as a macOS menu bar app built with Claude Code in ~1.5 hours. After internal feedback suggesting a Chrome extension would be more accessible, the entire Chrome extension was built in ~20 minutes with Claude Code. Both versions demonstrate what's possible with AI-assisted development.
+This started as a macOS menu bar app built with Claude Code in ~1.5 hours. I think ported it to Chrome and the entire Chrome extension was built in ~20 minutes with Claude Code. Both versions demonstrate what's possible with AI-assisted development.
 
 A macOS native version is also available in this repo (see `Itsybitsycal/` folder) but requires calendar permissions that may not be approved for enterprise use.
 
