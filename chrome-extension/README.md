@@ -110,6 +110,6 @@ This extension:
 
 ## Credits
 
-Created by [@harryl](https://github.com/harryl)
+Created by [Harry Liu](https://github.com/harryfliu)
 
 Built with Claude Code

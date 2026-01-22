@@ -67,7 +67,7 @@ function setupEventListeners() {
   document.getElementById('auth-btn').addEventListener('click', handleAuth);
   document.getElementById('auth-btn-main').addEventListener('click', handleAuth);
   document.getElementById('credits-row').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://github.com/harryl' });
+    chrome.tabs.create({ url: 'https://github.com/harryfliu' });
   });
 
   // Event Detail
