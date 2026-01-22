@@ -7,13 +7,15 @@ let state = {
   enabledCalendarIds: new Set(),
   isAuthenticated: false,
   isLoading: true,
-  showSettings: false
+  showSettings: false,
+  selectedEvent: null
 };
 
 // DOM Elements
 const elements = {
   calendarView: null,
   settingsView: null,
+  eventDetailView: null,
   loadingView: null,
   authRequiredView: null,
   monthYear: null,
@@ -36,6 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function cacheElements() {
   elements.calendarView = document.getElementById('calendar-view');
   elements.settingsView = document.getElementById('settings-view');
+  elements.eventDetailView = document.getElementById('event-detail-view');
   elements.loadingView = document.getElementById('loading-view');
   elements.authRequiredView = document.getElementById('auth-required-view');
   elements.monthYear = document.getElementById('month-year');
@@ -65,6 +68,21 @@ function setupEventListeners() {
   document.getElementById('auth-btn-main').addEventListener('click', handleAuth);
   document.getElementById('credits-row').addEventListener('click', () => {
     chrome.tabs.create({ url: 'https://github.com/harryl' });
+  });
+
+  // Event Detail
+  document.getElementById('event-back-btn').addEventListener('click', () => showView('calendar'));
+  document.getElementById('event-detail-open-btn').addEventListener('click', () => {
+    if (state.selectedEvent) {
+      const eventUrl = state.selectedEvent.htmlLink || `https://calendar.google.com/calendar/event?eid=${btoa(state.selectedEvent.id)}`;
+      chrome.tabs.create({ url: eventUrl });
+    }
+  });
+  document.getElementById('event-detail-video-btn').addEventListener('click', () => {
+    if (state.selectedEvent) {
+      const videoUrl = getVideoCallUrl(state.selectedEvent);
+      if (videoUrl) chrome.tabs.create({ url: videoUrl });
+    }
   });
 }
 
@@ -98,6 +116,7 @@ async function initializeApp() {
 function showView(view) {
   elements.calendarView.classList.add('hidden');
   elements.settingsView.classList.add('hidden');
+  elements.eventDetailView.classList.add('hidden');
   elements.loadingView.classList.add('hidden');
   elements.authRequiredView.classList.add('hidden');
 
@@ -111,6 +130,10 @@ function showView(view) {
       elements.settingsView.classList.remove('hidden');
       renderCalendarsList();
       updateAuthUI();
+      break;
+    case 'event-detail':
+      elements.eventDetailView.classList.remove('hidden');
+      renderEventDetail();
       break;
     case 'loading':
       elements.loadingView.classList.remove('hidden');
@@ -477,39 +500,128 @@ function createEventRow(event) {
     timeText.textContent = formatEventTime(event);
     time.appendChild(timeText);
 
-    if (hasVideoCall(event)) {
-      time.innerHTML += `
-        <svg class="video-icon" viewBox="0 0 12 12">
-          <rect x="1" y="3" width="7" height="6" rx="1" stroke="currentColor" stroke-width="1" fill="none"/>
-          <path d="M8 5l3-1.5v5L8 7" stroke="currentColor" stroke-width="1" fill="none"/>
-        </svg>
-      `;
-    }
-
     details.appendChild(time);
   }
 
   row.appendChild(details);
 
-  // Click to open event in Google Calendar
+  // Quick join button for video calls
+  const videoUrl = getVideoCallUrl(event);
+  if (videoUrl) {
+    const joinBtn = document.createElement('button');
+    joinBtn.className = 'quick-join-btn';
+    joinBtn.title = 'Join video call';
+    joinBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 14 14">
+        <rect x="1" y="3.5" width="8" height="7" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>
+        <path d="M9 5.5l4-2v7l-4-2" stroke="currentColor" stroke-width="1.2" fill="none"/>
+      </svg>
+    `;
+    joinBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      chrome.tabs.create({ url: videoUrl });
+    });
+    row.appendChild(joinBtn);
+  }
+
+  // Click to show event details
   row.addEventListener('click', () => {
-    const eventUrl = event.htmlLink || `https://calendar.google.com/calendar/event?eid=${btoa(event.id)}`;
-    chrome.tabs.create({ url: eventUrl });
+    state.selectedEvent = event;
+    showView('event-detail');
   });
 
   return row;
 }
 
 function hasVideoCall(event) {
-  const description = (event.description || '').toLowerCase();
-  const location = (event.location || '').toLowerCase();
-  const conferenceData = event.conferenceData;
+  return getVideoCallUrl(event) !== null;
+}
 
-  if (conferenceData?.entryPoints?.length > 0) return true;
-  if (description.includes('zoom.us') || description.includes('meet.google') || description.includes('teams.microsoft')) return true;
-  if (location.includes('zoom.us') || location.includes('meet.google') || location.includes('teams.microsoft')) return true;
+function getVideoCallUrl(event) {
+  // Check conferenceData first (most reliable)
+  if (event.conferenceData?.entryPoints) {
+    const videoEntry = event.conferenceData.entryPoints.find(e => e.entryPointType === 'video');
+    if (videoEntry?.uri) return videoEntry.uri;
+  }
 
-  return false;
+  // Check location and description for meeting URLs
+  const textToSearch = `${event.location || ''} ${event.description || ''}`;
+
+  // Zoom
+  const zoomMatch = textToSearch.match(/https:\/\/[a-z0-9-]*\.?zoom\.us\/[^\s<"')]+/i);
+  if (zoomMatch) return zoomMatch[0];
+
+  // Google Meet
+  const meetMatch = textToSearch.match(/https:\/\/meet\.google\.com\/[a-z-]+/i);
+  if (meetMatch) return meetMatch[0];
+
+  // Microsoft Teams
+  const teamsMatch = textToSearch.match(/https:\/\/teams\.microsoft\.com\/[^\s<"')]+/i);
+  if (teamsMatch) return teamsMatch[0];
+
+  return null;
+}
+
+// Event Detail Rendering
+function renderEventDetail() {
+  const event = state.selectedEvent;
+  if (!event) return;
+
+  // Color
+  document.getElementById('event-detail-color').style.backgroundColor = event.calendarColor;
+
+  // Title
+  document.getElementById('event-detail-title').textContent = event.summary || 'Untitled';
+
+  // Date
+  const start = new Date(event.start.dateTime || event.start.date);
+  const dateStr = start.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  });
+  document.getElementById('event-detail-date').textContent = dateStr;
+
+  // Time
+  if (event.start.date) {
+    document.getElementById('event-detail-time').textContent = 'All day';
+  } else {
+    document.getElementById('event-detail-time').textContent = formatEventTime(event);
+  }
+
+  // Location
+  const locationSection = document.getElementById('event-detail-location-section');
+  if (event.location) {
+    locationSection.classList.remove('hidden');
+    document.getElementById('event-detail-location').textContent = event.location;
+  } else {
+    locationSection.classList.add('hidden');
+  }
+
+  // Video call
+  const videoSection = document.getElementById('event-detail-video-section');
+  const videoUrl = getVideoCallUrl(event);
+  if (videoUrl) {
+    videoSection.classList.remove('hidden');
+  } else {
+    videoSection.classList.add('hidden');
+  }
+
+  // Description
+  const descSection = document.getElementById('event-detail-description-section');
+  if (event.description) {
+    descSection.classList.remove('hidden');
+    // Strip HTML tags for cleaner display
+    const cleanDesc = event.description.replace(/<[^>]*>/g, '').trim();
+    document.getElementById('event-detail-description').textContent = cleanDesc;
+  } else {
+    descSection.classList.add('hidden');
+  }
+
+  // Calendar name
+  const calendar = state.calendars.find(c => c.id === event.calendarId);
+  document.getElementById('event-detail-calendar').textContent = calendar?.summary || 'Calendar';
 }
 
 // Calendar Settings

@@ -118,6 +118,80 @@
       </div>
     </div>
 
+    <!-- Event Detail View -->
+    <div id="event-detail-view" class="hidden">
+      <header class="settings-header">
+        <button id="event-back-btn" class="nav-btn">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M8 2L4 6L8 10" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        </button>
+        <span>Event Details</span>
+      </header>
+
+      <div class="divider"></div>
+
+      <div class="event-detail-content">
+        <div class="event-detail-header">
+          <div id="event-detail-color" class="event-detail-color"></div>
+          <h2 id="event-detail-title"></h2>
+        </div>
+
+        <div class="event-detail-section">
+          <div class="event-detail-row">
+            <svg class="event-detail-icon" width="16" height="16" viewBox="0 0 16 16">
+              <rect x="2" y="3" width="12" height="11" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>
+              <path d="M2 6h12M5 1v3M11 1v3" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+            <span id="event-detail-date"></span>
+          </div>
+          <div class="event-detail-row">
+            <svg class="event-detail-icon" width="16" height="16" viewBox="0 0 16 16">
+              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2" fill="none"/>
+              <path d="M8 4v4l3 1.5" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+            <span id="event-detail-time"></span>
+          </div>
+        </div>
+
+        <div id="event-detail-location-section" class="event-detail-section hidden">
+          <div class="event-detail-row">
+            <svg class="event-detail-icon" width="16" height="16" viewBox="0 0 16 16">
+              <path d="M8 1C5.2 1 3 3.2 3 6c0 4 5 9 5 9s5-5 5-9c0-2.8-2.2-5-5-5z" stroke="currentColor" stroke-width="1.2" fill="none"/>
+              <circle cx="8" cy="6" r="2" stroke="currentColor" stroke-width="1.2" fill="none"/>
+            </svg>
+            <span id="event-detail-location"></span>
+          </div>
+        </div>
+
+        <div id="event-detail-video-section" class="event-detail-section hidden">
+          <button id="event-detail-video-btn" class="video-call-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16">
+              <rect x="1" y="4" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>
+              <path d="M11 6.5l4-2v7l-4-2" stroke="currentColor" stroke-width="1.2" fill="none"/>
+            </svg>
+            <span>Join video call</span>
+          </button>
+        </div>
+
+        <div id="event-detail-description-section" class="event-detail-section hidden">
+          <div class="event-detail-label">Description</div>
+          <div id="event-detail-description" class="event-detail-description"></div>
+        </div>
+
+        <div id="event-detail-calendar-section" class="event-detail-section">
+          <div class="event-detail-row">
+            <svg class="event-detail-icon" width="16" height="16" viewBox="0 0 16 16">
+              <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" fill="none"/>
+            </svg>
+            <span id="event-detail-calendar"></span>
+          </div>
+        </div>
+
+        <div class="event-detail-actions">
+          <button id="event-detail-open-btn" class="secondary-button">Open in Google Calendar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Loading/Auth Required State -->
     <div id="loading-view" class="center-content hidden">
       <div class="loading-spinner"></div>
