@@ -8,7 +8,10 @@ let state = {
   isAuthenticated: false,
   isLoading: true,
   showSettings: false,
-  selectedEvent: null
+  selectedEvent: null,
+  // Cache tracking - avoid refetching if we already have the data
+  cachedRangeStart: null,
+  cachedRangeEnd: null
 };
 
 // DOM Elements
@@ -241,42 +244,57 @@ async function fetchCalendarData() {
   }
 }
 
-async function fetchEvents() {
+async function fetchEvents(forceRefresh = false) {
   try {
     const token = await getAuthToken(false);
     if (!token) return;
 
-    // Get events for current month +/- 1 month
-    const startOfMonth = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() - 1, 1);
-    const endOfMonth = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() + 2, 0);
+    // Check if current month is within cached range (skip fetch if so)
+    const currentMonthStart = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth(), 1);
+    const currentMonthEnd = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() + 1, 0);
 
-    const timeMin = startOfMonth.toISOString();
-    const timeMax = endOfMonth.toISOString();
+    if (!forceRefresh && state.cachedRangeStart && state.cachedRangeEnd) {
+      if (currentMonthStart >= state.cachedRangeStart && currentMonthEnd <= state.cachedRangeEnd) {
+        // Already have data for this month, skip fetch
+        return;
+      }
+    }
 
-    const allEvents = [];
+    // Fetch 6 months of data (3 before, 3 after) to reduce future fetches
+    const startDate = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() - 3, 1);
+    const endDate = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() + 4, 0);
 
-    // Fetch events from each enabled calendar
-    for (const calendarId of state.enabledCalendarIds) {
+    const timeMin = startDate.toISOString();
+    const timeMax = endDate.toISOString();
+
+    // Fetch ALL calendars in PARALLEL using Promise.all
+    const calendarIds = [...state.enabledCalendarIds];
+    const fetchPromises = calendarIds.map(async (calendarId) => {
       try {
         const response = await fetch(
           `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?` +
-          `timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=250`,
+          `timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=500`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await response.json();
         if (data.items) {
-          // Add calendar info to each event
           const calendar = state.calendars.find(c => c.id === calendarId);
-          data.items.forEach(event => {
-            event.calendarId = calendarId;
-            event.calendarColor = calendar?.backgroundColor || '#4285f4';
-          });
-          allEvents.push(...data.items);
+          return data.items.map(event => ({
+            ...event,
+            calendarId,
+            calendarColor: calendar?.backgroundColor || '#4285f4'
+          }));
         }
+        return [];
       } catch (error) {
         console.error(`Failed to fetch events for calendar ${calendarId}:`, error);
+        return [];
       }
-    }
+    });
+
+    // Wait for all fetches to complete in parallel
+    const results = await Promise.all(fetchPromises);
+    const allEvents = results.flat();
 
     // Sort by start time
     state.events = allEvents.sort((a, b) => {
@@ -285,6 +303,10 @@ async function fetchEvents() {
       return aStart - bStart;
     });
 
+    // Update cached range
+    state.cachedRangeStart = startDate;
+    state.cachedRangeEnd = endDate;
+
   } catch (error) {
     console.error('Failed to fetch events:', error);
   }
@@ -292,6 +314,9 @@ async function fetchEvents() {
 
 async function refreshCalendars() {
   showView('loading');
+  // Clear cache to force refresh
+  state.cachedRangeStart = null;
+  state.cachedRangeEnd = null;
   await fetchCalendarData();
   showView('calendar');
 }
@@ -680,7 +705,11 @@ async function toggleCalendar(calendarId) {
   }
 
   await chrome.storage.sync.set({ enabledCalendarIds: [...state.enabledCalendarIds] });
-  await fetchEvents();
+
+  // Clear cache since enabled calendars changed
+  state.cachedRangeStart = null;
+  state.cachedRangeEnd = null;
+  await fetchEvents(true);
   renderCalendarsList();
 
   // Notify background worker
@@ -701,6 +730,10 @@ function navigateMonth(delta) {
     state.currentMonth.getMonth() + delta,
     1
   );
+  // Render immediately with cached data (feels instant)
+  renderCalendar();
+  renderEvents();
+  // Fetch more data in background if needed (won't block UI)
   fetchEvents().then(() => {
     renderCalendar();
     renderEvents();
@@ -710,6 +743,10 @@ function navigateMonth(delta) {
 function goToToday() {
   state.currentMonth = new Date();
   state.selectedDate = new Date();
+  // Render immediately
+  renderCalendar();
+  renderEvents();
+  // Fetch in background if needed
   fetchEvents().then(() => {
     renderCalendar();
     renderEvents();
