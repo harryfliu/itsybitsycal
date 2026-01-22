@@ -77,24 +77,65 @@ A macOS native version is also available in this repo (see `Itsybitsycal/` folde
 - **Plus button** - Create new event (opens Google Calendar)
 - **Gear button** - Settings and calendar selection
 
-## Privacy & Security
+## Privacy Policy
 
-**Your data stays private:**
+*Last updated: January 2025*
 
-- **Read-only access** - The extension can only read your calendar, never modify it
-- **No servers** - All data goes directly between your browser and Google's API
-- **No tracking** - No analytics, telemetry, or third-party services
-- **Local storage only** - Preferences stored in Chrome's encrypted sync storage
-- **Open source** - Full source code available for review
+### Data Collection
 
-**Permissions explained:**
+Itsybitsycal collects and processes the following data:
 
-| Permission | Why it's needed |
-|------------|-----------------|
-| `identity` | OAuth sign-in with Google |
-| `storage` | Save your calendar preferences |
-| `alarms` | Update the date badge daily |
-| `googleapis.com` | Fetch calendar data from Google |
+| Data Type | Purpose | Storage |
+|-----------|---------|---------|
+| Calendar events | Display in popup | Temporary (memory only, cleared when popup closes) |
+| Calendar list | Let you choose which calendars to show | Temporary (memory only) |
+| Calendar preferences | Remember your selected calendars | Chrome sync storage (encrypted) |
+
+### Data NOT Collected
+
+- No personally identifiable information
+- No browsing history or web activity
+- No analytics or usage tracking
+- No health, financial, or location data
+
+### Data Sharing
+
+**We do not sell, transfer, or share your data with any third parties.**
+
+All calendar data flows directly between your browser and Google's API. There are no intermediate servers, analytics services, or third-party integrations.
+
+### Data Storage
+
+- **Calendar events**: Held in memory only while the popup is open. Never written to disk.
+- **Preferences**: Stored in Chrome's encrypted sync storage (which calendars you've enabled).
+- **OAuth tokens**: Managed entirely by Chrome's Identity API. The extension never sees or stores your Google password.
+
+### Permissions
+
+| Permission | Justification |
+|------------|---------------|
+| `identity` | Required for Google OAuth authentication |
+| `storage` | Save your calendar display preferences |
+| `alarms` | Update the badge date at midnight daily |
+| `googleapis.com` | Fetch calendar data from Google Calendar API |
+
+### Your Rights
+
+- **Revoke access**: Remove the extension anytime, or revoke OAuth access at [Google Account Settings](https://myaccount.google.com/permissions)
+- **Data deletion**: Uninstalling the extension removes all locally stored preferences
+- **Transparency**: Full source code is available for review
+
+### Security
+
+- Built with Chrome Manifest V3 (latest security model)
+- Read-only calendar access (`calendar.readonly` scope)
+- No remote code execution
+- No eval() or dynamic code
+- Content Security Policy enforced
+
+### Contact
+
+For privacy questions, open an issue at [github.com/harryfliu/itsybitsycal](https://github.com/harryfliu/itsybitsycal/issues)
 
 ## Development
 
