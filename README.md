@@ -1,110 +1,122 @@
 # Itsybitsycal
 
-A lightweight, native macOS menu bar calendar app built with SwiftUI.
+A minimal calendar for your browser toolbar. View your Google Calendar events at a glance.
 
-![macOS 13.0+](https://img.shields.io/badge/macOS-13.0+-blue)
-![Swift](https://img.shields.io/badge/Swift-5.9-orange)
+![Chrome](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
-
-## The Story
-
-To test Claude Code, I decided to rebuild one of my favorite MacOS apps [Itsycal](https://www.mowglii.com/itsycal/) from scratch using [Claude Code](https://claude.ai/code). **The entire app was built in ~1.5 hours** - from zero to a fully functional menu bar calendar with event creation, multiple calendar support, and customizable display options. It's certainly not done, but it's in a functional enough state to release.
-
-This project demonstrates what's possible when pairing human intent with AI-assisted development.
 
 ## Features
 
-- **Menu Bar Integration** - Lives in your menu bar, not your dock
-- **Quick Calendar View** - See the current month at a glance
-- **Event List** - View upcoming events for the next 7 days
-- **Multiple Calendars** - Supports all calendars synced to macOS (iCloud, Google, Exchange, etc.)
-- **Customizable Menu Bar** - Choose from various icon styles including emoji options
-- **Event Creation & Editing** - Create and edit events directly from the app
-- **Video Call Detection** - Automatically detects Zoom, Google Meet, and Teams links
-- **Current Event Highlighting** - See what's happening now at a glance
-- **Privacy Focused** - Uses macOS Calendar integration, no separate login required
-
-## Screenshots
-
-*Menu bar calendar with event list and customizable display options*
+- **Calendar popup** - Click the extension icon to see a monthly calendar view
+- **Event list** - View upcoming events for the next 7 days
+- **Quick join** - One-click join button for Zoom, Meet, and Teams calls
+- **Event details** - Click any event to see full details without leaving the popup
+- **Badge** - Shows current date on the extension icon
+- **Multiple calendars** - Choose which Google calendars to display
+- **Dark mode** - Follows your system preference
+- **Fast** - Events cached locally, instant month navigation
 
 ## Installation
 
-### Download
-Download the latest release from the [Releases](https://github.com/harryfliu/itsybitsycal/releases) page.
+### 1. Set up Google Cloud OAuth
 
-### Build from Source
-```bash
-# Clone the repository
-git clone https://github.com/harryfliu/itsybitsycal.git
-cd itsybitsycal
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (or select existing)
+3. Enable the **Google Calendar API**:
+   - Go to "APIs & Services" → "Library"
+   - Search for "Google Calendar API" → Click "Enable"
+4. Configure OAuth consent screen:
+   - Go to "APIs & Services" → "OAuth consent screen"
+   - Choose "External" user type
+   - Fill in required fields
+   - Add scope: `https://www.googleapis.com/auth/calendar.readonly`
+   - Add yourself as a test user under "Audience"
+5. Create OAuth credentials:
+   - Go to "APIs & Services" → "Credentials"
+   - Click "Create Credentials" → "OAuth client ID"
+   - Choose "Chrome Extension" as application type
+   - You'll need your extension ID (see step 2)
 
-# Build release version
-xcodebuild -project Itsybitsycal.xcodeproj -scheme Itsybitsycal -configuration Release build
+### 2. Load the extension
 
-# Find the built app
-open ~/Library/Developer/Xcode/DerivedData/Itsybitsycal-*/Build/Products/Release/
-```
+1. Clone this repo: `git clone https://github.com/harryfliu/itsybitsycal.git`
+2. Open Chrome → `chrome://extensions/`
+3. Enable "Developer mode" (top right)
+4. Click "Load unpacked" → select the `chrome-extension` folder
+5. Copy the **Extension ID** shown
 
-## Setup
+### 3. Connect OAuth
 
-### Adding Google Calendar
+1. Go back to Google Cloud Console → Credentials
+2. Edit your OAuth client ID
+3. Paste your Extension ID into "Item ID"
+4. Copy the **Client ID**
+5. Edit `chrome-extension/manifest.json` and replace `YOUR_CLIENT_ID.apps.googleusercontent.com` with your client ID
+6. Reload the extension in `chrome://extensions/`
 
-1. Open System Settings → **Internet Accounts**
-2. Click **Google** and sign in
-3. **Important:** Uncheck Mail, Contacts, and Notes
-4. Keep only **Calendars** checked for minimal permissions
-5. Your Google Calendar will now appear in Itsybitsycal
+### 4. Sign in
 
-### Granting Calendar Access
-
-On first launch, macOS will ask for calendar access. Click **Allow** to enable the app to read your calendars.
+1. Click the extension icon in your toolbar
+2. Click "Sign in with Google"
+3. Grant calendar access
 
 ## Usage
 
-- **Click menu bar icon** - Open/close the calendar
-- **Click a date** - Select and view events for that day
-- **Circle button (•)** - Jump to today and scroll to current event
-- **Arrow buttons (< >)** - Navigate between months
-- **Plus button (+)** - Create a new event
-- **Calendar button** - Open Internet Accounts to add calendar accounts
-- **Gear button** - Open settings
+- **Click extension icon** - Open/close the calendar
+- **Arrow buttons** - Navigate between months
+- **Dot button** - Jump to today
+- **Click a date** - See events starting from that day
+- **Click an event** - View full event details
+- **Green video button** - Join video call directly
+- **Plus button** - Create new event (opens Google Calendar)
+- **Gear button** - Settings and calendar selection
 
-### Settings
+## Privacy & Security
 
-- **Icon Style** - Choose from calendar icons, emoji (frog, cat, star, heart), or custom emoji
-- **Menu Bar Display** - Show day, month, day of week, time, and/or current event
-- **Calendar Selection** - Choose which calendars to display
-- **Privacy Settings** - Quick access to macOS calendar privacy settings
+**Your data stays private:**
 
-## Requirements
+- **Read-only access** - The extension can only read your calendar, never modify it
+- **No servers** - All data goes directly between your browser and Google's API
+- **No tracking** - No analytics, telemetry, or third-party services
+- **Local storage only** - Preferences stored in Chrome's encrypted sync storage
+- **Open source** - Full source code available for review
 
-- macOS 13.0 (Ventura) or later
-- Calendar access permission
+**Permissions explained:**
 
-## Tech Stack
+| Permission | Why it's needed |
+|------------|-----------------|
+| `identity` | OAuth sign-in with Google |
+| `storage` | Save your calendar preferences |
+| `alarms` | Update the date badge daily |
+| `googleapis.com` | Fetch calendar data from Google |
 
-- SwiftUI
-- EventKit
-- AppKit (for menu bar integration)
+## Development
 
-## Privacy
+Built with vanilla JavaScript, no frameworks:
 
-Itsybitsycal uses the native macOS EventKit framework to access your calendars. Your calendar data stays on your device and is never sent to any external servers. The app only requests calendar read/write access - no contacts, reminders, or other data.
+```
+chrome-extension/
+├── manifest.json     # Extension config (Manifest V3)
+├── background.js     # Service worker for badge
+├── popup/            # Main calendar UI
+└── options/          # Settings page
+```
 
-## Contributing
+## The Story
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+This started as a macOS menu bar app built with Claude Code in ~1.5 hours. After internal feedback suggesting a Chrome extension would be more accessible, the entire extension was built in another session. Both versions demonstrate what's possible with AI-assisted development.
+
+A macOS native version is also available in this repo (see `Itsybitsycal/` folder) but requires calendar permissions that may not be approved for enterprise use.
+
+## Credits
+
+Created by [Harry Liu](https://github.com/harryfliu)
+
+Built with [Claude Code](https://claude.ai/code)
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
-
-## Credits
-
-Created by Harry Liu
-
-Built entirely with [Claude Code](https://claude.ai/code)
 
 ---
 

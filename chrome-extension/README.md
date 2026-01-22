@@ -6,59 +6,22 @@ A minimal calendar in your browser toolbar. View your Google Calendar events at 
 
 - **Calendar popup** - Click the extension icon to see a monthly calendar view
 - **Event list** - View upcoming events for the next 7 days
+- **Quick join** - One-click join button for Zoom, Meet, and Teams calls
+- **Event details** - Click any event to see full details
 - **Badge** - Shows current date on the extension icon
-- **Video call detection** - Icons for Zoom, Meet, and Teams links
 - **Multiple calendars** - Choose which calendars to display
 - **Dark mode** - Follows your system preference
+- **Fast** - Events cached locally, instant month navigation
 
 ## Installation
 
-### 1. Set up Google Cloud OAuth
+See the [main README](../README.md) for full installation instructions.
 
-Before loading the extension, you need to create OAuth credentials:
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project (or select existing)
-3. Enable the **Google Calendar API**:
-   - Go to "APIs & Services" → "Library"
-   - Search for "Google Calendar API"
-   - Click "Enable"
-
-4. Create OAuth credentials:
-   - Go to "APIs & Services" → "Credentials"
-   - Click "Create Credentials" → "OAuth client ID"
-   - Choose "Chrome Extension" as the application type
-   - You'll need your extension ID (see step 2 below)
-
-5. Configure the OAuth consent screen:
-   - Go to "APIs & Services" → "OAuth consent screen"
-   - Choose "External" user type
-   - Fill in the required fields
-   - Add scope: `https://www.googleapis.com/auth/calendar.readonly`
-
-### 2. Load the extension in Chrome
-
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable "Developer mode" (toggle in top right)
-3. Click "Load unpacked"
-4. Select the `chrome-extension` folder
-5. Note the **Extension ID** that appears (you'll need this for OAuth)
-
-### 3. Update the manifest with your OAuth client ID
-
-1. Go back to Google Cloud Console
-2. Edit your OAuth client ID
-3. Add your Extension ID to the "Application ID" field
-4. Copy the **Client ID**
-5. Open `manifest.json` and replace `YOUR_CLIENT_ID.apps.googleusercontent.com` with your actual client ID
-
-### 4. Reload and test
-
-1. Go back to `chrome://extensions/`
-2. Click the refresh icon on your extension
-3. Click the extension icon in the toolbar
-4. Click "Sign in with Google"
-5. Grant calendar access when prompted
+Quick summary:
+1. Set up Google Cloud OAuth with Calendar API
+2. Load extension in Chrome (`chrome://extensions/`)
+3. Add your OAuth client ID to `manifest.json`
+4. Sign in with Google
 
 ## Usage
 
@@ -66,24 +29,16 @@ Before loading the extension, you need to create OAuth credentials:
 - **Navigate months** using the arrow buttons
 - **Click the dot** to go to today
 - **Click any day** to see events starting from that date
-- **Click an event** to open it in Google Calendar
+- **Click an event** to view full details
+- **Click green video button** to join a call directly
 - **Click the + button** to create a new event
 - **Click the gear** to access settings and choose calendars
 
-## Development
-
-The extension is built with vanilla JavaScript and uses:
-
-- **Manifest V3** - Latest Chrome extension format
-- **Google Calendar API** - For fetching calendar data
-- **Chrome Identity API** - For OAuth authentication
-- **Chrome Storage API** - For persisting settings
-
-### File Structure
+## File Structure
 
 ```
 chrome-extension/
-├── manifest.json        # Extension configuration
+├── manifest.json        # Extension configuration (Manifest V3)
 ├── background.js        # Service worker for badge updates
 ├── popup/
 │   ├── popup.html      # Main popup UI
@@ -100,16 +55,61 @@ chrome-extension/
     └── icon128.png     # Chrome Web Store icon
 ```
 
-## Privacy
+## Privacy & Security
 
-This extension:
-- Only requests **read-only** access to your calendar
-- Stores calendar preferences locally in Chrome's sync storage
-- Does not send data to any third-party servers
-- All calendar data is fetched directly from Google's API
+### Data Handling
+
+| What | Where it goes | Stored? |
+|------|---------------|---------|
+| Calendar events | Fetched from Google API → displayed in popup | Cached in memory only (cleared on popup close) |
+| Calendar preferences | Chrome sync storage | Yes, encrypted by Chrome |
+| OAuth tokens | Managed by Chrome Identity API | Yes, by Chrome (not accessible to extension) |
+| Video call URLs | Extracted from events → opened in new tab | No |
+
+### What We DON'T Do
+
+- **No external servers** - All data flows directly between your browser and Google
+- **No analytics** - No tracking, telemetry, or usage data collection
+- **No third-party services** - Only Google Calendar API is used
+- **No data sharing** - Your calendar data never leaves your browser
+- **No write access** - Read-only calendar scope, cannot modify your events
+
+### Permissions Explained
+
+| Permission | Purpose |
+|------------|---------|
+| `identity` | Required for OAuth authentication with Google |
+| `storage` | Save which calendars you've enabled (synced across Chrome instances) |
+| `alarms` | Update the badge with current date at midnight |
+| `https://www.googleapis.com/*` | Fetch calendar data from Google Calendar API |
+
+### Security Measures
+
+- **Manifest V3** - Latest Chrome extension security model
+- **No remote code** - All JavaScript is bundled, no external scripts loaded
+- **No eval()** - No dynamic code execution
+- **Content Security Policy** - Strict CSP enforced by Manifest V3
+- **Minimal permissions** - Only requests what's necessary
+- **Open source** - Full code available for security review
+
+### OAuth Security
+
+- OAuth tokens are managed entirely by Chrome's Identity API
+- Extension never sees or stores your Google password
+- Tokens can be revoked anytime at [Google Account Settings](https://myaccount.google.com/permissions)
+- Uses `calendar.readonly` scope - cannot create, modify, or delete events
+
+## Development
+
+Built with vanilla JavaScript:
+
+- **Manifest V3** - Latest Chrome extension format
+- **Google Calendar API** - For fetching calendar data
+- **Chrome Identity API** - For OAuth authentication
+- **Chrome Storage API** - For persisting settings
 
 ## Credits
 
 Created by [Harry Liu](https://github.com/harryfliu)
 
-Built with Claude Code
+Built with [Claude Code](https://claude.ai/code)
