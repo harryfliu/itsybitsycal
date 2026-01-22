@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Itsybitsycal Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Itsybitsycal Settings</h1>
+      <p class="subtitle">A minimal calendar in your browser toolbar</p>
+    </header>
+
+    <main>
+      <!-- Account Section -->
+      <section class="settings-section">
+        <h2>Google Account</h2>
+        <div class="card">
+          <div id="auth-status" class="auth-status">
+            <div class="auth-info">
+              <svg class="auth-icon" width="24" height="24" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2" fill="none"/>
+                <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="2" fill="none"/>
+              </svg>
+              <span id="auth-text">Not signed in</span>
+            </div>
+            <button id="auth-btn" class="btn btn-primary">Sign in with Google</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Calendars Section -->
+      <section id="calendars-section" class="settings-section hidden">
+        <h2>Calendars</h2>
+        <p class="section-description">Choose which calendars to display</p>
+        <div id="calendars-list" class="card calendars-list"></div>
+      </section>
+
+      <!-- About Section -->
+      <section class="settings-section">
+        <h2>About</h2>
+        <div class="card">
+          <div class="about-row">
+            <span class="label">Version</span>
+            <span class="value">1.0.0</span>
+          </div>
+          <div class="about-row">
+            <span class="label">Created by</span>
+            <a href="https://github.com/harryl" target="_blank" class="value link">@harryl</a>
+          </div>
+          <div class="about-row">
+            <span class="label">Source</span>
+            <a href="https://github.com/harryl/itsybitsycal" target="_blank" class="value link">GitHub</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Help Section -->
+      <section class="settings-section">
+        <h2>Setup Guide</h2>
+        <div class="card help-card">
+          <h3>First Time Setup</h3>
+          <ol>
+            <li>Click "Sign in with Google" above</li>
+            <li>Allow access to your Google Calendar</li>
+            <li>Select which calendars to show</li>
+            <li>Click the extension icon to view your calendar</li>
+          </ol>
+
+          <h3>Features</h3>
+          <ul>
+            <li>View your calendar in a compact popup</li>
+            <li>See upcoming events for the next 7 days</li>
+            <li>Click events to open them in Google Calendar</li>
+            <li>Badge shows current date</li>
+            <li>Video call indicators for Zoom, Meet, and Teams</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Built with Claude Code</p>
+    </footer>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
