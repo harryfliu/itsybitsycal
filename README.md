@@ -79,7 +79,7 @@ A macOS native version is also available in this repo (see `Itsybitsycal/` folde
 
 ## Privacy Policy
 
-*Last updated: January 2025*
+*Last updated: January 2026*
 
 ### Data Collection
 
